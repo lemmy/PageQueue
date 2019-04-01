@@ -1,61 +1,76 @@
 ----------------------------- MODULE PageQueue -----------------------------
 EXTENDS Integers, Sequences, FiniteSets, TLC
 
-Pages == 5
-Workers == {
-              {"w1"}, 
-              {"w1", "w2"},
-              {"w1", "w2", "w3"},
-              {"w1", "w2", "w3", "w4"}
-           }
-
-ASSUME /\ Workers # {}                (* at least one worker *)
-       /\ Pages \in Nat               (* maximum number of pages to write *)
-
-FINISH  == -1
-VIOLATION == -2
-
------------------------------------------------------------------------------
-
 (***************************************************************************)
 (* The image of the function F.                                            *)
 (***************************************************************************)
 Image(F) == { F[x] : x \in DOMAIN F }
 
-(* The sequence seq with e removed or seq iff e \notin Image(seq) *)
+(***************************************************************************)
+(* The sequence seq with e removed or seq iff e \notin Image(seq)          *)
+(***************************************************************************)
 Remove(seq, e) == SelectSeq(seq, LAMBDA s: s # e)
+
+(***************************************************************************)
+(* Sequence seq contains no duplicate elements s.t.  :                     *)
+(*    \A i,j \in 1..Len(seq): i # j => seq[i] # seq[j]                     *)
+(*   Cardinality(Image(seq)) = Cardinality(DOMAIN seq)                     *)
+(***************************************************************************)
+NoDuplicates(seq) == \A i,j \in 1..Len(seq): i # j => seq[i] # seq[j]
+
+\* https://www.json.org/ 
+\* (this is invalid because {"key: 1", "key2: 2"} instead of {"key": 1, "key2": 2} 
+ToJsonObject(F) == Image([ d \in DOMAIN F |-> ToString(d) \o ":" \o ToString(F[d]) ])
+
+-----------------------------------------------------------------------------
+
+CONSTANT Pages, Workers
+
+ASSUME /\ Workers # {}                (* at least one worker *)
+       /\ Pages \in Nat               (* maximum number of pages to write *)
+
+-----------------------------------------------------------------------------
+
+FINISH  == -1
+VIOLATION == -2
 
 -----------------------------------------------------------------------------
 (***************************************************************************
 --algorithm PageQueue {
-       variables \* The set of workers (this set is static and just here to 
-                 \* easily modelcheck various different set.  Unfortunately,
-                 \* this cannot be liveness-checked!!!
-                 workers \in Workers;
-                 \*  
-                 idle = 0;
-                 \* A strictly monotonic increasing counter
+       variables \* A strictly monotonic increasing counter
                  tail = 0; 
                  \* A strictly monotonic increasing counter. There is at least a single
                  \* Page available produced by the generation of initial states.
-                 head \in 1..Pages; 
-                 \* 
-                 disk = [ i \in 1..head |-> i ];
+                 pages \in 1..Pages;
+                 head = pages; 
+                 disk = [ i \in 1..pages |-> i ];
+                 history = <<>>;
        
        define {
+           TotalWork == Len(history) <= pages
+       
            WSafety == 
-                   \* For as long as there is work, head >= tail.
-                   /\ head >= tail
                    \* Upon terminate all work is either done or a violation has been found.
-                   /\ (\A p \in workers : pc[p] = "Done") => \/ tail = VIOLATION
+                   /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
                                                              \/ /\ tail = FINISH
                                                                 /\ disk = <<>>
+                   \* There are never duplicates in history nor disk.
+                   /\ NoDuplicates(history)
+                   /\ NoDuplicates(disk)
            
            (* If a violation is found, it is possible that only a single worker explored states ("exp")
               or *)
-           WLiveness == \A w \in workers: pc[w] = "Done" => \/ tail = VIOLATION
-                                                            \/ /\ <>(tail = Pages /\ head = Pages)
-                                                               /\ <>[](tail = FINISH)
+           WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
+                                                               \/ /\ <>(tail = pages /\ head = pages)
+                                                                  /\ <>[](tail = FINISH)
+                        \* Eventually, all pages have been processed meaning history contains all pages.
+                        \* However, since PageQueue relaxes strict FIFO there is no guarantee that pages
+                        \* are processed in a deterministic order.  Thus, don't expect an actual order of
+                        \* pages which is why history is converted into a set.
+           WLiveness2 == /\ <>[](\/ (tail = FINISH /\ Image(history) = 1..pages)
+                                 \* Or a violation has been found in which case a prefix of all pages has been processed.
+                                 \/ (tail = VIOLATION /\ Image(history) \subseteq 1..pages)) 
+                        
        }
        
        (* Atomicity is implicit due to the absence of labels. *)      
@@ -78,38 +93,20 @@ Remove(seq, e) == SelectSeq(seq, LAMBDA s: s # e)
        \* dequeue opeartion with head thus cannot make progress while
        \* the dequeue for head + n progresses.
        
-       fair process (worker \in workers) 
+       fair process (worker \in Workers) 
             variables result = FALSE, expected = 0; {
             \* Read head and tail to check if work left.
             \* Iff true CAS tail+1, else done. On successful
             \* CAS return tail, else reread head and tail.
             deq: expected := tail;
-                 if (expected = FINISH \/ expected = VIOLATION) {
+                 if (expected = VIOLATION \/ expected = FINISH) {
                    goto Done;
-                 (* This is a non-atomic comparison. We might read an old value of head here. 
-                    Check if work is available and wait otherwise.*)
-                 } else if (head = expected) {
-                   chk: expected := head;
-                        if (idle + 1 = Cardinality(workers)) {
-                            tail := FINISH;
-                            goto Done;
-                        } else {
-                            (*inc:*) idle := idle + 1;
-                            spn: while (head = expected /\ tail > 0) {
-                               (* busy wait for a state change let it either be
-                                  unseen states or global termination. *)
-                               wt2: skip;
-                            };
-                            \*TODO Decrement idle again.
-                            idle := idle - 1;
-                            goto deq;
-                        }
                  } else {
                    \* deq/claim and read a page.
                    casA: CAS(result, tail, expected, expected + 1);
                          if (result) {
                             expected := tail;
-                            goto rd;
+                            goto wt;
                          } else {
                            (* CAS can fail for two reasons:
                               a) Another worker dequeued the
@@ -120,21 +117,32 @@ Remove(seq, e) == SelectSeq(seq, LAMBDA s: s # e)
                          };
                  };
 
+            (* spin until a page is available and can be read or
+               all other Workers are "stuck" here too in which
+               case incidates FINISH. *)
+            wt:  while (expected \notin Image(disk)) {
+                    if (tail = Cardinality(Workers) + head) {
+                       tail := FINISH;
+                       goto Done;
+                    } else if (tail = FINISH \/ tail = VIOLATION) {
+                       goto Done;
+                    } else {
+                       skip; \* goto wt;
+                    }
+                 };
+            rd:  assert expected \in Image(disk);
+                 disk := Remove(disk, expected);
+
             \* evaluate next-state relation. This a) might
             \* terminate model checking iff a violation is
             \* found, b) no unseen state are found by this
             \* worker, or c) unseen states are found and 
             \* have to be enqueued.
             \* Non-deterministically choose steps.
-            rd:  await expected \in Image(disk);
-                 disk := Remove(disk, expected);
-            exp: either { tail := VIOLATION; goto Done; (* a) *) }
-                 or { if (tail > Pages) {
-                          goto deq; (* b) *)
-                      } else { 
-                          skip; (* c) *)
-                      };
-                    };
+            exp: history := history \o <<expected>>;
+                 (* a) *) either { tail := VIOLATION; goto Done; }
+                 (* b) *) or { goto deq; }
+                 (* c) *) or { goto enq; };
 
             (* enq a page. *)
            \* enq is too simple for an actual implementation,
@@ -170,8 +178,13 @@ Remove(seq, e) == SelectSeq(seq, LAMBDA s: s # e)
            \* close. E.g. during the beginning and end of model
            \* checking (to some extend this is what getCache in the
            \* existing implementation is used for).
-            enq: head := head + 1;
-                 expected := head;
+            enq: CAS(result, head, head, head + 1);
+                  if (result) {
+                     expected := head;
+                     goto wrt;
+                  } else {
+                     goto enq;
+                  };
             
             (* write page to disk *)
             wrt: disk := disk \o << expected >>;
@@ -180,72 +193,56 @@ Remove(seq, e) == SelectSeq(seq, LAMBDA s: s # e)
 }
  ***************************************************************************)
 \* BEGIN TRANSLATION
-VARIABLES workers, idle, tail, head, disk, pc
+VARIABLES tail, pages, head, disk, history, pc
 
 (* define statement *)
+TotalWork == Len(history) <= pages
+
 WSafety ==
 
-        /\ head >= tail
-
-        /\ (\A p \in workers : pc[p] = "Done") => \/ tail = VIOLATION
+        /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
                                                   \/ /\ tail = FINISH
                                                      /\ disk = <<>>
 
+        /\ NoDuplicates(history)
+        /\ NoDuplicates(disk)
 
 
-WLiveness == \A w \in workers: pc[w] = "Done" => \/ tail = VIOLATION
-                                                 \/ /\ <>(tail = Pages /\ head = Pages)
-                                                    /\ <>[](tail = FINISH)
+
+WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
+                                                    \/ /\ <>(tail = pages /\ head = pages)
+                                                       /\ <>[](tail = FINISH)
+
+
+
+
+WLiveness2 == /\ <>[](\/ (tail = FINISH /\ Image(history) = 1..pages)
+
+                      \/ (tail = VIOLATION /\ Image(history) \subseteq 1..pages))
 
 VARIABLES result, expected
 
-vars == << workers, idle, tail, head, disk, pc, result, expected >>
+vars == << tail, pages, head, disk, history, pc, result, expected >>
 
-ProcSet == (workers)
+ProcSet == (Workers)
 
 Init == (* Global variables *)
-        /\ workers \in Workers
-        /\ idle = 0
         /\ tail = 0
-        /\ head \in 1..Pages
-        /\ disk = [ i \in 1..head |-> i ]
+        /\ pages \in 1..Pages
+        /\ head = pages
+        /\ disk = [ i \in 1..pages |-> i ]
+        /\ history = <<>>
         (* Process worker *)
-        /\ result = [self \in workers |-> FALSE]
-        /\ expected = [self \in workers |-> 0]
+        /\ result = [self \in Workers |-> FALSE]
+        /\ expected = [self \in Workers |-> 0]
         /\ pc = [self \in ProcSet |-> "deq"]
 
 deq(self) == /\ pc[self] = "deq"
              /\ expected' = [expected EXCEPT ![self] = tail]
-             /\ IF expected'[self] = FINISH \/ expected'[self] = VIOLATION
+             /\ IF expected'[self] = VIOLATION \/ expected'[self] = FINISH
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
-                   ELSE /\ IF head = expected'[self]
-                              THEN /\ pc' = [pc EXCEPT ![self] = "chk"]
-                              ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
-             /\ UNCHANGED << workers, idle, tail, head, disk, result >>
-
-chk(self) == /\ pc[self] = "chk"
-             /\ expected' = [expected EXCEPT ![self] = head]
-             /\ IF idle + 1 = Cardinality(workers)
-                   THEN /\ tail' = FINISH
-                        /\ pc' = [pc EXCEPT ![self] = "Done"]
-                        /\ idle' = idle
-                   ELSE /\ idle' = idle + 1
-                        /\ pc' = [pc EXCEPT ![self] = "spn"]
-                        /\ tail' = tail
-             /\ UNCHANGED << workers, head, disk, result >>
-
-spn(self) == /\ pc[self] = "spn"
-             /\ IF head = expected[self] /\ tail > 0
-                   THEN /\ pc' = [pc EXCEPT ![self] = "wt2"]
-                        /\ idle' = idle
-                   ELSE /\ idle' = idle - 1
-                        /\ pc' = [pc EXCEPT ![self] = "deq"]
-             /\ UNCHANGED << workers, tail, head, disk, result, expected >>
-
-wt2(self) == /\ pc[self] = "wt2"
-             /\ TRUE
-             /\ pc' = [pc EXCEPT ![self] = "spn"]
-             /\ UNCHANGED << workers, idle, tail, head, disk, result, expected >>
+                   ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
+             /\ UNCHANGED << tail, pages, head, disk, history, result >>
 
 casA(self) == /\ pc[self] = "casA"
               /\ IF tail = expected[self]
@@ -255,53 +252,168 @@ casA(self) == /\ pc[self] = "casA"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ expected' = [expected EXCEPT ![self] = tail']
-                         /\ pc' = [pc EXCEPT ![self] = "rd"]
+                         /\ pc' = [pc EXCEPT ![self] = "wt"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "deq"]
                          /\ UNCHANGED expected
-              /\ UNCHANGED << workers, idle, head, disk >>
+              /\ UNCHANGED << pages, head, disk, history >>
+
+wt(self) == /\ pc[self] = "wt"
+            /\ IF expected[self] \notin Image(disk)
+                  THEN /\ IF tail = Cardinality(Workers) + head
+                             THEN /\ tail' = FINISH
+                                  /\ pc' = [pc EXCEPT ![self] = "Done"]
+                             ELSE /\ IF tail = FINISH \/ tail = VIOLATION
+                                        THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
+                                        ELSE /\ TRUE
+                                             /\ pc' = [pc EXCEPT ![self] = "wt"]
+                                  /\ tail' = tail
+                  ELSE /\ pc' = [pc EXCEPT ![self] = "rd"]
+                       /\ tail' = tail
+            /\ UNCHANGED << pages, head, disk, history, result, expected >>
 
 rd(self) == /\ pc[self] = "rd"
-            /\ expected[self] \in Image(disk)
+            /\ Assert(expected[self] \in Image(disk), 
+                      "Failure of assertion at line 133, column 18.")
             /\ disk' = Remove(disk, expected[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
-            /\ UNCHANGED << workers, idle, tail, head, result, expected >>
+            /\ UNCHANGED << tail, pages, head, history, result, expected >>
 
 exp(self) == /\ pc[self] = "exp"
+             /\ history' = history \o <<expected[self]>>
              /\ \/ /\ tail' = VIOLATION
                    /\ pc' = [pc EXCEPT ![self] = "Done"]
-                \/ /\ IF tail > Pages
-                         THEN /\ pc' = [pc EXCEPT ![self] = "deq"]
-                         ELSE /\ TRUE
-                              /\ pc' = [pc EXCEPT ![self] = "enq"]
+                \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
                    /\ tail' = tail
-             /\ UNCHANGED << workers, idle, head, disk, result, expected >>
+                \/ /\ pc' = [pc EXCEPT ![self] = "enq"]
+                   /\ tail' = tail
+             /\ UNCHANGED << pages, head, disk, result, expected >>
 
 enq(self) == /\ pc[self] = "enq"
-             /\ head' = head + 1
-             /\ expected' = [expected EXCEPT ![self] = head']
-             /\ pc' = [pc EXCEPT ![self] = "wrt"]
-             /\ UNCHANGED << workers, idle, tail, disk, result >>
+             /\ IF head = head
+                   THEN /\ head' = head + 1
+                        /\ result' = [result EXCEPT ![self] = TRUE]
+                   ELSE /\ result' = [result EXCEPT ![self] = FALSE]
+                        /\ head' = head
+             /\ IF result'[self]
+                   THEN /\ expected' = [expected EXCEPT ![self] = head']
+                        /\ pc' = [pc EXCEPT ![self] = "wrt"]
+                   ELSE /\ pc' = [pc EXCEPT ![self] = "enq"]
+                        /\ UNCHANGED expected
+             /\ UNCHANGED << tail, pages, disk, history >>
 
 wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = disk \o << expected[self] >>
              /\ pc' = [pc EXCEPT ![self] = "deq"]
-             /\ UNCHANGED << workers, idle, tail, head, result, expected >>
+             /\ UNCHANGED << tail, pages, head, history, result, expected >>
 
-worker(self) == deq(self) \/ chk(self) \/ spn(self) \/ wt2(self)
-                   \/ casA(self) \/ rd(self) \/ exp(self) \/ enq(self)
-                   \/ wrt(self)
+worker(self) == deq(self) \/ casA(self) \/ wt(self) \/ rd(self)
+                   \/ exp(self) \/ enq(self) \/ wrt(self)
 
-Next == (\E self \in workers: worker(self))
+Next == (\E self \in Workers: worker(self))
            \/ (* Disjunct to prevent deadlock on termination *)
               ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
 
 Spec == /\ Init /\ [][Next]_vars
-        /\ \A self \in workers : WF_vars(worker(self))
+        /\ \A self \in Workers : WF_vars(worker(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 -----------------------------------------------------------------------------
 
+=============================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+F ++ G == IF DOMAIN F = DOMAIN G /\ \A fnc \in {F,G} : \A i \in Image(fnc): i \in Int
+          THEN [d \in DOMAIN F |-> F[d] + G[d]]
+          ELSE << >>
+          
+Mrg(F, G) == [d \in DOMAIN F |-> F[d] + G[d]]
+
+vlock == LET clock[i \in DOMAIN TETrace] == lclock(self) IN clock
+
+lclock(proc) == [p \in DOMAIN pc |-> IF p = proc THEN 1 ELSE 0]
+
+self == 
+IF TEStateNum = 1
+THEN "Init"
+ELSE LET this == TETrace[TEStateNum].pc
+         prev == TETrace[TEStateNum - 1].pc
+     IN CHOOSE p \in DOMAIN prev : prev[p] # this[p]
+
+
+\*__trace_var_state == 2
+\*trace_def_behavior == <<>>
+\*
+\*self == IF __trace_var_state = 1 THEN "" 
+\*        ELSE CHOOSE p \in pc : trace_def_behavior[__trace_var_state - 1][pc] # trace_def_behavior[__trace_var_state][pc]
 
 =============================================================================
+
+
+viz_clock == TLCSet(42, 1)
+
+viz_counter_set == IF TLCGet(42) <= 16 
+                   THEN TLCSet(42, TLCGet(42) + 1)
+                   ELSE TRUE
+                   
+viz_counter_get == TLCGet(42)
+
+viz_behavior_set == LET cnt == TLCGet(42)
+                    IN IF TLCGet(42) <= 16
+                    THEN TLCSet(23, ([cnt |-> [expected |-> expected, head |-> head] ]))
+                    ELSE TRUE
+
+viz_behavior_get == TLCGet(23)
+
+viz_self == IF tail # -1 THEN TLCSet(23, CHOOSE p \in DOMAIN pc : pc[p]' # pc[p]) ELSE TRUE
+                 
+viz_self_off == IF viz_counter_get = 2
+            THEN LET proc == CHOOSE p \in DOMAIN pc : pc[p]' # pc[p]
+                 IN TLCSet(23, proc)
+            ELSE TRUE
