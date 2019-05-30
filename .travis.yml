@@ -1,0 +1,38 @@
+ sudo: required
+ dist: trusty
+ language: java
+ jdk: openjdk11
+ install: true
+
+ env:
+  global:
+   - DISPLAY=:99.0
+   - MAVEN_OPTS="-Xmx4g"
+
+ before_install:
+  # Check and free memory.
+  - sudo service --status-all
+  - sudo free -m -t
+  - sudo /etc/init.d/atd stop
+  - sudo /etc/init.d/cron stop
+  - sudo /etc/init.d/friendly-recovery stop
+  - sudo /etc/init.d/ssh stop
+  - sudo /etc/init.d/sshguard stop
+  - sudo /etc/init.d/haveged stop
+  - sudo /etc/init.d/docker stop
+  - sudo /etc/init.d/memcached stop
+  - sudo /etc/init.d/postgresql stop
+  - sudo free -m -t
+  # Turn OOM killer off to stop it from killing JUnit tests.
+  - sudo sysctl vm.overcommit_memory=2
+  # Unset funny _JAVA_OPTIONS which might break things
+  - unset _JAVA_OPTIONS
+
+ script:
+  - cat /proc/cpuinfo
+  - wget https://nightly.tlapl.us/dist/tla2tools.jar
+  - java -Dtlc2.TLC.stopAfter=1800 -jar tla2tools.jar -checkpoint 120 -coverage 120 MC.tla
+
+ after_failure:
+  - dmesg
+

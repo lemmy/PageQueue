@@ -1,0 +1,5 @@
+**/*.toolbox
+!**/*.toolbox/*.launch
+**/*.toolbox/*_Snapshot_*.launch
+**/MC.cfg
+/.project
