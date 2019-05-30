@@ -15,5 +15,5 @@ jobs:
     displayName: Set a variable and then display all
     env:
       aVarFromYaml: someValue
-  - script: java -Dtlc2.TLC.stopAfter=60 -jar tla2tools.jar MC.tla
+  - script: java -Dtlc2.TLC.stopAfter=1800 -jar tla2tools.jar -workers 2 -checkpoint 60 -coverage 60 -tool MC.tla
     displayName: Run TLC
