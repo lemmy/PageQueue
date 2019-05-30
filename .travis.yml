@@ -7,7 +7,6 @@
  env:
   global:
    - DISPLAY=:99.0
-   - MAVEN_OPTS="-Xmx4g"
 
  before_install:
   # Check and free memory.
@@ -30,8 +29,6 @@
 
  script:
   - cat /proc/cpuinfo
-  - wget https://nightly.tlapl.us/dist/tla2tools.jar
-  - java -Dtlc2.TLC.stopAfter=1800 -jar tla2tools.jar -checkpoint 120 -coverage 120 MC.tla
 
  after_failure:
   - dmesg
