@@ -18,10 +18,6 @@ Remove(seq, e) == SelectSeq(seq, LAMBDA s: s # e)
 (***************************************************************************)
 NoDuplicates(seq) == \A i,j \in 1..Len(seq): i # j => seq[i] # seq[j]
 
-\* https://www.json.org/ 
-\* (this is invalid because {"key: 1", "key2: 2"} instead of {"key": 1, "key2": 2} 
-ToJsonObject(F) == Image([ d \in DOMAIN F |-> ToString(d) \o ":" \o ToString(F[d]) ])
-
 -----------------------------------------------------------------------------
 
 CONSTANT Pages, Workers
@@ -137,9 +133,9 @@ VIOLATION == -2
             rd:  assert expected \in Image(disk);
                  disk := Remove(disk, expected);
 
-            \* evaluate next-state relation. This a) might
+            \* Evaluate next-state relation: This a) might
             \* terminate model checking iff a violation is
-            \* found, b) no unseen state are found by this
+            \* found, b) no unseen states are found by this
             \* worker, or c) unseen states are found and 
             \* have to be enqueued.
             \* Non-deterministically choose steps.

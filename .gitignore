@@ -3,3 +3,4 @@
 **/*.toolbox/*_Snapshot_*.launch
 **/MC.cfg
 /.project
+states/
