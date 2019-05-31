@@ -7,15 +7,20 @@ w1, w2, w3
 ----
 
 \* MV CONSTANT definitions Workers
-const_15585492256342000 == 
+const_15593223642446000 == 
 {w1, w2, w3}
 ----
 
+\* SYMMETRY definition
+symm_15593223642447000 == 
+Permutations(const_15593223642446000)
+----
+
 \* CONSTANT definitions @modelParameterConstants:1Pages
-const_15585492256343000 == 
+const_15593223642448000 == 
 3
 ----
 
 =============================================================================
 \* Modification History
-\* Created Wed May 22 11:20:25 PDT 2019 by markus
+\* Created Fri May 31 10:06:04 PDT 2019 by markus
