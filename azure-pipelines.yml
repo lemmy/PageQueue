@@ -9,11 +9,7 @@ jobs:
   steps:
   - script: wget https://nightly.tlapl.us/dist/tla2tools.jar
     displayName: Get (nightly) TLC
-  - script: |
-      set MYVAR=foo
-      set
-    displayName: Set a variable and then display all
-    env:
-      aVarFromYaml: someValue
-  - script: java -Dtlc2.TLC.stopAfter=1800 -jar tla2tools.jar -workers 2 -checkpoint 60 -coverage 60 -tool MC.tla
+  - script: wget https://github.com/tlaplus/CommunityModules/releases/download/20190611.10/CommunityModules-201906112345.jar
+    displayName: Get TLA+ Community Modules
+  - script: java -Dtlc2.TLC.stopAfter=1800 -cp tla2tools.jar:CommunityModules-201906112345.jar tlc2.TLC -workers 2 -checkpoint 60 -coverage 60 -tool MC.tla
     displayName: Run TLC

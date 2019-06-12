@@ -1,5 +1,5 @@
 ----------------------------- MODULE PageQueue -----------------------------
-EXTENDS Integers, Sequences, FiniteSets, TLC
+EXTENDS Integers, Sequences, SequencesExt, FiniteSets, TLC
 
 (***************************************************************************)
 (* The image of the function F.                                            *)
@@ -10,13 +10,6 @@ Image(F) == { F[x] : x \in DOMAIN F }
 (* The sequence seq with e removed or seq iff e \notin Image(seq)          *)
 (***************************************************************************)
 Remove(seq, e) == SelectSeq(seq, LAMBDA s: s # e)
-
-(***************************************************************************)
-(* Sequence seq contains no duplicate elements s.t.  :                     *)
-(*    \A i,j \in 1..Len(seq): i # j => seq[i] # seq[j]                     *)
-(*   Cardinality(Image(seq)) = Cardinality(DOMAIN seq)                     *)
-(***************************************************************************)
-NoDuplicates(seq) == \A i,j \in 1..Len(seq): i # j => seq[i] # seq[j]
 
 -----------------------------------------------------------------------------
 
@@ -212,8 +205,8 @@ WSafety ==
                                                   \/ /\ tail = FINISH
                                                      /\ disk = <<>>
 
-        /\ NoDuplicates(history)
-        /\ NoDuplicates(disk)
+        /\ IsASet(history)
+        /\ IsASet(disk)
 
 
 
