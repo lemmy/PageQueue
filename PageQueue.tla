@@ -44,8 +44,8 @@ VIOLATION == -2
                                                              \/ /\ tail = FINISH
                                                                 /\ disk = <<>>
                    \* There are never duplicates in history nor disk.
-                   /\ NoDuplicates(history)
-                   /\ NoDuplicates(disk)
+                   /\ IsInjective(history)
+                   /\ IsInjective(disk)
            
            (* If a violation is found, it is possible that only a single worker explored states ("exp")
               or *)
@@ -205,8 +205,8 @@ WSafety ==
                                                   \/ /\ tail = FINISH
                                                      /\ disk = <<>>
 
-        /\ IsASet(history)
-        /\ IsASet(disk)
+        /\ IsInjective(history)
+        /\ IsInjective(disk)
 
 
 
