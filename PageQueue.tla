@@ -41,20 +41,14 @@ a) Atomic counters (two) implemented with Java's AtomicLong
 b) Atomic file rename operation implemented with Java's java.nio.Files#move
    (java.nio.file.StandardCopyOption.ATOMIC_MOVE)
 
+
+Todo:
+-----
+
+Worker suspension as prototyped in https://github.com/lemmy/PageQueue/commit/f2b4b3ba1cf77aa5683873de28873d53ad231be1
+
 ----------------------------- MODULE PageQueue -----------------------------
-EXTENDS Integers, Sequences, SequencesExt, FiniteSets, TLC
-
-(***************************************************************************)
-(* The image of the function F.                                            *)
-(***************************************************************************)
-Image(F) == { F[x] : x \in DOMAIN F }
-
-(***************************************************************************)
-(* The sequence seq with e removed or seq iff e \notin Image(seq)          *)
-(***************************************************************************)
-Remove(seq, e) == SelectSeq(seq, LAMBDA s: s # e)
-
------------------------------------------------------------------------------
+EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, Naturals
 
 CONSTANT Pages, Workers
 
@@ -62,34 +56,46 @@ ASSUME /\ Workers # {}                (* at least one worker *)
        /\ Pages \in Nat               (* maximum number of pages to write *)
 
 -----------------------------------------------------------------------------
+(***************************************************************************)
+(*  PageQueue models a non-strict/relaxed FIFO/queue specially tailored to *)
+(*  the TLC  model checker.  TLC generates large volumes of unexplored     *)
+(*  states during breadth-first search of the (on-the-fly generated) state *)
+(*  graph.  In order to parallelize the BFS search and ultimately scale    *)
+(*  it, we accept to deviate from strict fifo order.                       *)
+(*                                                                         *)
+(*  The underlying assumption/justification/argument is as follows:        *)
+(*  1) TLC employs BFS instead of DFS to check safety properties because:  *)
+(*  1a) BFS is parallelizable and thus scales better with the number of    *)
+(*      cores.                                                             *)  
+(*  1b) Users of TLC are interested in finding the shortest                *) 
+(*      counter-example if any,  because a counter-example with a hundred  *)
+(*      states is more difficult to understand than one with 10 states.    *)
+(*  2) An approximation of the shortest counter-example is acceptable      *)
+(*     provided its upper bound (the approximation cannot be shorter than  *)
+(*     the actual counter-example) is within  1-2 states. WE WILL EXPLORE  *)
+(*     IF THIS IS SOMETHING THAT CAN BE GUARANTEED WITH CERTAINTY OR JUST  *)
+(*     HIGH PROBABILITY.                                                   *)
+(*  3) The average state graph is such that it has a low diameter and      *)
+(*     states have a high outdegree.  In other words, it  has many states  *)
+(*     with identical distance d from the initial states (root nodes of    *)
+(*     the graph).                                                         *)
+(*  4) A page is thus a sequence of states which - with high probability - *)
+(*     have all the same d.                                                *)
+(*  5) Assuming we choose (limit) the size of a page s.t. processes will   *)
+(*     dequeue pages with distance [d-2,d+2].                              *)
+(*                                                                         *)
+(*     The fundamental idea of PageQueue is to improve scalability by      *)
+(*     minimizing the critical section to incrementing counters whereas    *)
+(*     the existing implementation of TLC runs IO (read/write states)      *)
+(*     inside the CS.                                                      *)
+(***************************************************************************)
 
 FINISH  == -1
 VIOLATION == -2
 
 -----------------------------------------------------------------------------
-(***************************************************************************
- PageQueue models a non-strict/relaxed FIFO/queue specially tailored to the TLC
- model checker.  TLC generates large volumes of unexplored states during breadth-first search
- of the (on-the-fly generated) state graph.  In order to parallelize the BFS search and ultimately scale it, we
- accept to deviate from strict fifo order.
 
- The underlying assumption/justification/argument is as follows:
- 1) TLC employs BFS instead of DFS to check safety properties because:
- 1a) BFS is parallelizable and thus scales better with the number of cores.
- 1b) Users of TLC are interested in finding the shortest counter-example if any,
-     because a counter-example with a hundred states is more difficult to understand
-     than one with 10 states.
- 2) An approximation of the shortest counter-example is acceptable provided its upper
-    bound (the approximation cannot be shorter than the actual counter-example) is within
-    1-2 states. WE WILL EXPLORE IF THIS IS SOMETHING THAT CAN BE GUARANTEED WITH CERTAINTY OR JUST HIGH PROBABILITY
- 3) The average state graph is such that it has a low diameter and states have a high outdegree.  In other words, it
-    has many states with identical distance d from the initial states (root nodes of the graph).
- 4) A page is thus a sequence of states which - with high probability - have all the same d.
- 5) Assuming we choose (limit) the size of a page s.t. processes will dequeue pages with
-    distance [d-2,d+2].
-    
-    The fundamental idea of PageQueue is to improve scalability by minimizing the critical section to incrementing counters whereas
-    the existing implementation of TLC runs IO (read/write states) inside the CS.
+(***************************************************************************
 --algorithm PageQueue {
        variables \* A strictly monotonic increasing counter. Its value marks the
                  \* last page that has been consumed.  Iff its value is negativ,
@@ -107,27 +113,28 @@ VIOLATION == -2
            \* state constraint
            TotalWork == Len(history) <= Pages
        
+           \* Safety Property:
+           \* There are never duplicates in history nor disk.
+           \* Upon terminate all work is either done or a violation has been found.
            WSafety == 
-                   \* Upon terminate all work is either done or a violation has been found.
+                   /\ IsInjective(history)
+                   /\ IsInjective(disk)
                    /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
                                                              \/ /\ tail = FINISH
                                                                 /\ disk = <<>>
-                   \* There are never duplicates in history nor disk.
-                   /\ IsInjective(history)
-                   /\ IsInjective(disk)
            
-           (* If a violation is found, it is possible that only a single worker explored states ("exp")
-              or *)
+           \* If a violation is found, it is possible that only a single worker explored states ("exp")
            WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
                                                                \/ /\ <>(tail = Pages /\ head = Pages)
                                                                   /\ <>[](tail = FINISH)
-                        \* Eventually, all pages have been processed meaning history contains all pages.
-                        \* However, since PageQueue relaxes strict FIFO there is no guarantee that pages
-                        \* are processed in a deterministic order.  Thus, don't expect an actual order of
-                        \* pages which is why history is converted into a set.
-           WLiveness2 == /\ <>[](\/ (tail = FINISH /\ Image(history) = 1..Pages)
-                                 \* Or a violation has been found in which case a prefix of all pages has been processed.
-                                 \/ (tail = VIOLATION /\ Image(history) \subseteq 1..Pages)) 
+
+           \* Eventually, all pages have been processed meaning history contains all pages.
+           \* However, since PageQueue relaxes strict FIFO there is no guarantee that pages
+           \* are processed in a deterministic order.  Thus, don't expect an actual order of
+           \* pages which is why history is converted into a set.
+           \* Or a violation has been found in which case a prefix of all pages has been processed.
+           WLiveness2 == /\ <>[](\/ (tail = FINISH /\ Range(history) = 1..Pages)
+                                 \/ (tail = VIOLATION /\ Range(history) \subseteq 1..Pages)) 
                         
        }
        
@@ -188,8 +195,8 @@ VIOLATION == -2
             (* spin until a page is available and can be read or
                all other Workers are "stuck" here too (which
                incidates FINISH). *)
-            wt:  while (expected \notin Image(disk)) {
-                    if (tail = FINISH \/ tail = VIOLATION) {
+            wt:  while (expected \notin Range(disk)) {
+                    if (tail = VIOLATION \/ tail = FINISH) {
                        \* Another worker signaled termination.
                        goto Done;
                     } else if (tail = Cardinality(Workers) + head) {
@@ -207,7 +214,7 @@ VIOLATION == -2
                        skip; \* goto wt;
                     }
                  };
-            rd:  assert expected \in Image(disk);
+            rd:  assert expected \in Range(disk);
                  disk := Remove(disk, expected);
 
             (* 2. Stage *)
@@ -232,9 +239,9 @@ VIOLATION == -2
                  (* c) *) or { goto enq; };
 
 
-            (* 3. Stage *)
+           (* 3. Stage *)
             
-            (* enq a page. *)
+           (* enqueue a page. *)
            \* enq ideally increments head and (re-)names the 
            \* disk file atomically. Otherwise a dequeue operation
            \* might fail to read/find the file if it claims the
@@ -282,22 +289,22 @@ VIOLATION == -2
                  goto deq;
        }
 }
- ***************************************************************************)
-\* BEGIN TRANSLATION PCal-0fbcd103fc1e6fd79f5e82ce036623bb
+***************************************************************************)
+\* BEGIN TRANSLATION PCal-efeba4e58cf4bda3c5f3ce0a7a7dfd67
 VARIABLES tail, head, disk, history, pc
 
 (* define statement *)
 TotalWork == Len(history) <= Pages
 
-WSafety ==
 
+
+
+WSafety ==
+        /\ IsInjective(history)
+        /\ IsInjective(disk)
         /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
                                                   \/ /\ tail = FINISH
                                                      /\ disk = <<>>
-
-        /\ IsInjective(history)
-        /\ IsInjective(disk)
-
 
 
 WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
@@ -307,9 +314,10 @@ WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
 
 
 
-WLiveness2 == /\ <>[](\/ (tail = FINISH /\ Image(history) = 1..Pages)
 
-                      \/ (tail = VIOLATION /\ Image(history) \subseteq 1..Pages))
+
+WLiveness2 == /\ <>[](\/ (tail = FINISH /\ Range(history) = 1..Pages)
+                      \/ (tail = VIOLATION /\ Range(history) \subseteq 1..Pages))
 
 VARIABLES result, expected
 
@@ -348,8 +356,8 @@ casA(self) == /\ pc[self] = "casA"
               /\ UNCHANGED << head, disk, history >>
 
 wt(self) == /\ pc[self] = "wt"
-            /\ IF expected[self] \notin Image(disk)
-                  THEN /\ IF tail = FINISH \/ tail = VIOLATION
+            /\ IF expected[self] \notin Range(disk)
+                  THEN /\ IF tail = VIOLATION \/ tail = FINISH
                              THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                              ELSE /\ IF tail = Cardinality(Workers) + head
                                         THEN /\ pc' = [pc EXCEPT ![self] = "casB"]
@@ -370,8 +378,8 @@ casB(self) == /\ pc[self] = "casB"
               /\ UNCHANGED << head, disk, history, expected >>
 
 rd(self) == /\ pc[self] = "rd"
-            /\ Assert(expected[self] \in Image(disk), 
-                      "Failure of assertion at line 167, column 18.")
+            /\ Assert(expected[self] \in Range(disk), 
+                      "Failure of assertion at line 217, column 18.")
             /\ disk' = Remove(disk, expected[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
             /\ UNCHANGED << tail, head, history, result, expected >>
@@ -433,7 +441,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-937a2a0858f1470b9362340ac1322ef7
+\* END TRANSLATION TLA-10d40cbd539a735690cfe253b4897070
 -----------------------------------------------------------------------------
 
 =============================================================================

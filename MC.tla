@@ -3,24 +3,28 @@ EXTENDS PageQueue, TLC
 
 \* MV CONSTANT declarations@modelParameterConstants
 CONSTANTS
-w1, w2, w3
+worker1, worker2, worker3
 ----
 
 \* MV CONSTANT definitions Workers
-const_15593223642446000 == 
-{w1, w2, w3}
+const_157430886976642000 == 
+{worker1, worker2, worker3}
 ----
 
 \* SYMMETRY definition
-symm_15593223642447000 == 
-Permutations(const_15593223642446000)
+symm_157430886976643000 == 
+Permutations(const_157430886976642000)
 ----
 
 \* CONSTANT definitions @modelParameterConstants:1Pages
-const_15593223642448000 == 
-3
+const_157430886976644000 == 
+100
 ----
 
+\* CONSTRAINT definition @modelParameterContraint:0
+constr_157430886976645000 ==
+TotalWork
+----
 =============================================================================
 \* Modification History
-\* Created Fri May 31 10:06:04 PDT 2019 by markus
+\* Created Wed Nov 20 20:01:09 PST 2019 by markus
