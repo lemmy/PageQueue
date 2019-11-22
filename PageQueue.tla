@@ -1,3 +1,4 @@
+(***************************************************************************)
 Random Thoughts:
 ----------------
 
@@ -45,7 +46,11 @@ b) Atomic file rename operation implemented with Java's java.nio.Files#move
 Todo:
 -----
 
-Worker suspension as prototyped in https://github.com/lemmy/PageQueue/commit/f2b4b3ba1cf77aa5683873de28873d53ad231be1
+Worker suspension as prototyped in
+https://github.com/lemmy/PageQueue/commit/f2b4b3ba1cf77aa5683873de28873d53ad231be1
+
+(***************************************************************************)
+
 
 ----------------------------- MODULE PageQueue -----------------------------
 EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, Naturals
@@ -90,8 +95,13 @@ ASSUME /\ Workers # {}                (* at least one worker *)
 (*     inside the CS.                                                      *)
 (***************************************************************************)
 
+\* TODO: Separation into Finish and Violation not needed by the implementation.
+\* The implementation just returns null. Instead, only the spec uses it to
+\* state stronger invariants. 
 FINISH  == -1
 VIOLATION == -2
+
+SUSPEND == -3
 
 -----------------------------------------------------------------------------
 
@@ -110,6 +120,15 @@ VIOLATION == -2
                  history = <<>>;
        
        define {
+           \* PCal translator generates ProcSet below definitions, yet the invariants use it.
+           MyProcSet == {"main"} \cup Workers
+           
+           ArriveAndAwait(F) == /\ \A p \in MyProcSet : pc[p] \in DOMAIN F
+                                /\ pc' = [ p \in MyProcSet |-> F[pc[p]] ]
+       
+           AAAA == ArriveAndAwait([ m3 |-> "m4", Done |-> "Done" , awtwtA |-> "awtwtB" ])
+           AAAB == ArriveAndAwait([ m5 |-> "m0", Done |-> "Done" , awtwtB |-> "deq" ])
+       
            \* state constraint
            TotalWork == Len(history) <= Pages
        
@@ -119,14 +138,14 @@ VIOLATION == -2
            WSafety == 
                    /\ IsInjective(history)
                    /\ IsInjective(disk)
-                   /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
-                                                             \/ /\ tail = FINISH
-                                                                /\ disk = <<>>
+                   /\ (\A p \in MyProcSet : pc[p] = "Done") => \/ tail = VIOLATION
+                                                               \/ /\ tail = FINISH
+                                                                  /\ disk = <<>>
            
            \* If a violation is found, it is possible that only a single worker explored states ("exp")
-           WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
-                                                               \/ /\ <>(tail = Pages /\ head = Pages)
-                                                                  /\ <>[](tail = FINISH)
+           WLiveness == /\ \A w \in MyProcSet: pc[w] = "Done" => \/ tail = VIOLATION
+                                                                 \/ /\ <>(tail = Pages /\ head = Pages)
+                                                                    /\ <>[](tail = FINISH)
 
            \* Eventually, all pages have been processed meaning history contains all pages.
            \* However, since PageQueue relaxes strict FIFO there is no guarantee that pages
@@ -146,6 +165,35 @@ VIOLATION == -2
            } else { 
                result := FALSE
            }
+       }
+       
+       fair process (ProcName = "main") 
+            variables tmp = -1; {
+            
+            m0:  while (TRUE) {
+                         (* CAS tail to SUSPEND and remember old value *)
+                     m1: tmp := tail;
+                         tail := SUSPEND;
+                         \* Setting tail to SUSPEND is to simple because it
+                         \* does not take into account that tail could already
+                         \* be set to FINISH in which case we must not suspend.
+                         (* Setting tail to SUSPEND might override FINISH/VIOLATION  *)
+                         (* set by a worker.  Thus, check for override and set tail  *)
+                         (* from SUSPEND back to tmp. Afterwards, also terminate the *)
+                         (* the phaser to release any worker we might have caused to *)
+                         (* suspend instead of finish.                               *)
+                     m2: if (tmp = VIOLATION \/ tmp = FINISH) {
+                             tail := tmp;
+                             goto Done;
+                         };
+                     m3: await AAAA;
+                         (* Do main thread things and set tail back to t. *)
+                     m4: skip;
+                         tail := tmp;
+                         (* Resume workers. *)
+                         (* Phaser#arriveAndAwaitAdvance *)
+                     m5: await AAAB;
+            };
        }
 
        \* It is acceptable to deviate from strict FIFO (no strict BFS).
@@ -175,7 +223,11 @@ VIOLATION == -2
             \* CAS return tail, else reread head and tail.
             deq: expected := tail;
                  if (expected = VIOLATION \/ expected = FINISH) {
-                   goto Done;
+                   goto Finish;
+                 } else if (expected = SUSPEND) {
+                     awtwtA: await AAAA;
+                     awtwtB: await AAAB;
+                     goto deq;
                  } else {
                    \* deq/claim a page (and subsequently at wt read it).
                    casA: CAS(result, tail, expected, expected + 1);
@@ -198,13 +250,13 @@ VIOLATION == -2
             wt:  while (expected \notin Range(disk)) {
                     if (tail = VIOLATION \/ tail = FINISH) {
                        \* Another worker signaled termination.
-                       goto Done;
+                       goto Finish;
                     } else if (tail = Cardinality(Workers) + head) {
                        \* This worker detected the termination condition.
                        casB: CAS(result, tail, expected, FINISH);
                              if (result) {
                                 \* Successfully signaled termination.
-                                goto Done;
+                                goto Finish;
                              } else {
                                 \* Failed to signal termination.
                                 goto wt;
@@ -229,7 +281,7 @@ VIOLATION == -2
                  (* a) *) either { 
                              casC: CAS(result, tail, expected, VIOLATION);
                                    if (result) {
-                                      goto Done;
+                                      goto Finish;
                                    } else {
                                       retry: expected := tail;
                                              goto casC;
@@ -287,13 +339,24 @@ VIOLATION == -2
                enq determines the file-name of the page.  *)
             wrt: disk := disk \o << expected >>;
                  goto deq;
+                 
+            Finish: goto Done;
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-efeba4e58cf4bda3c5f3ce0a7a7dfd67
+\* BEGIN TRANSLATION
 VARIABLES tail, head, disk, history, pc
 
 (* define statement *)
+MyProcSet == {"main"} \cup Workers
+
+ArriveAndAwait(F) == /\ \A p \in MyProcSet : pc[p] \in DOMAIN F
+                     /\ pc' = [ p \in MyProcSet |-> F[pc[p]] ]
+
+AAAA == ArriveAndAwait([ m3 |-> "m4", Done |-> "Done" , awtwtA |-> "awtwtB" ])
+AAAB == ArriveAndAwait([ m5 |-> "m0", Done |-> "Done" , awtwtB |-> "deq" ])
+
+
 TotalWork == Len(history) <= Pages
 
 
@@ -302,14 +365,14 @@ TotalWork == Len(history) <= Pages
 WSafety ==
         /\ IsInjective(history)
         /\ IsInjective(disk)
-        /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
-                                                  \/ /\ tail = FINISH
-                                                     /\ disk = <<>>
+        /\ (\A p \in MyProcSet : pc[p] = "Done") => \/ tail = VIOLATION
+                                                    \/ /\ tail = FINISH
+                                                       /\ disk = <<>>
 
 
-WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
-                                                    \/ /\ <>(tail = Pages /\ head = Pages)
-                                                       /\ <>[](tail = FINISH)
+WLiveness == /\ \A w \in MyProcSet: pc[w] = "Done" => \/ tail = VIOLATION
+                                                      \/ /\ <>(tail = Pages /\ head = Pages)
+                                                         /\ <>[](tail = FINISH)
 
 
 
@@ -319,28 +382,77 @@ WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
 WLiveness2 == /\ <>[](\/ (tail = FINISH /\ Range(history) = 1..Pages)
                       \/ (tail = VIOLATION /\ Range(history) \subseteq 1..Pages))
 
-VARIABLES result, expected
+VARIABLES tmp, result, expected
 
-vars == << tail, head, disk, history, pc, result, expected >>
+vars == << tail, head, disk, history, pc, tmp, result, expected >>
 
-ProcSet == (Workers)
+ProcSet == {"main"} \cup (Workers)
 
 Init == (* Global variables *)
         /\ tail = 0
         /\ head = 1
         /\ disk = <<head>>
         /\ history = <<>>
+        (* Process ProcName *)
+        /\ tmp = -1
         (* Process worker *)
         /\ result = [self \in Workers |-> FALSE]
         /\ expected = [self \in Workers |-> 0]
-        /\ pc = [self \in ProcSet |-> "deq"]
+        /\ pc = [self \in ProcSet |-> CASE self = "main" -> "m0"
+                                        [] self \in Workers -> "deq"]
+
+m0 == /\ pc["main"] = "m0"
+      /\ pc' = [pc EXCEPT !["main"] = "m1"]
+      /\ UNCHANGED << tail, head, disk, history, tmp, result, expected >>
+
+m1 == /\ pc["main"] = "m1"
+      /\ tmp' = tail
+      /\ tail' = SUSPEND
+      /\ pc' = [pc EXCEPT !["main"] = "m2"]
+      /\ UNCHANGED << head, disk, history, result, expected >>
+
+m2 == /\ pc["main"] = "m2"
+      /\ IF tmp = VIOLATION \/ tmp = FINISH
+            THEN /\ tail' = tmp
+                 /\ pc' = [pc EXCEPT !["main"] = "Done"]
+            ELSE /\ pc' = [pc EXCEPT !["main"] = "m3"]
+                 /\ tail' = tail
+      /\ UNCHANGED << head, disk, history, tmp, result, expected >>
+
+m3 == /\ pc["main"] = "m3"
+      /\ AAAA
+      /\ UNCHANGED << tail, head, disk, history, tmp, result, expected >>
+
+m4 == /\ pc["main"] = "m4"
+      /\ TRUE
+      /\ tail' = tmp
+      /\ pc' = [pc EXCEPT !["main"] = "m5"]
+      /\ UNCHANGED << head, disk, history, tmp, result, expected >>
+
+m5 == /\ pc["main"] = "m5"
+      /\ AAAB
+      /\ UNCHANGED << tail, head, disk, history, tmp, result, expected >>
+
+ProcName == m0 \/ m1 \/ m2 \/ m3 \/ m4 \/ m5
 
 deq(self) == /\ pc[self] = "deq"
              /\ expected' = [expected EXCEPT ![self] = tail]
              /\ IF expected'[self] = VIOLATION \/ expected'[self] = FINISH
-                   THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
-                   ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
-             /\ UNCHANGED << tail, head, disk, history, result >>
+                   THEN /\ pc' = [pc EXCEPT ![self] = "Finish"]
+                   ELSE /\ IF expected'[self] = SUSPEND
+                              THEN /\ pc' = [pc EXCEPT ![self] = "awtwtA"]
+                              ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
+             /\ UNCHANGED << tail, head, disk, history, tmp, result >>
+
+awtwtA(self) == /\ pc[self] = "awtwtA"
+                /\ AAAA
+                /\ UNCHANGED << tail, head, disk, history, tmp, result, 
+                                expected >>
+
+awtwtB(self) == /\ pc[self] = "awtwtB"
+                /\ AAAB
+                /\ UNCHANGED << tail, head, disk, history, tmp, result, 
+                                expected >>
 
 casA(self) == /\ pc[self] = "casA"
               /\ IF tail = expected[self]
@@ -353,18 +465,18 @@ casA(self) == /\ pc[self] = "casA"
                          /\ pc' = [pc EXCEPT ![self] = "wt"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "deq"]
                          /\ UNCHANGED expected
-              /\ UNCHANGED << head, disk, history >>
+              /\ UNCHANGED << head, disk, history, tmp >>
 
 wt(self) == /\ pc[self] = "wt"
             /\ IF expected[self] \notin Range(disk)
                   THEN /\ IF tail = VIOLATION \/ tail = FINISH
-                             THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
+                             THEN /\ pc' = [pc EXCEPT ![self] = "Finish"]
                              ELSE /\ IF tail = Cardinality(Workers) + head
                                         THEN /\ pc' = [pc EXCEPT ![self] = "casB"]
                                         ELSE /\ TRUE
                                              /\ pc' = [pc EXCEPT ![self] = "wt"]
                   ELSE /\ pc' = [pc EXCEPT ![self] = "rd"]
-            /\ UNCHANGED << tail, head, disk, history, result, expected >>
+            /\ UNCHANGED << tail, head, disk, history, tmp, result, expected >>
 
 casB(self) == /\ pc[self] = "casB"
               /\ IF tail = expected[self]
@@ -373,23 +485,23 @@ casB(self) == /\ pc[self] = "casB"
                     ELSE /\ result' = [result EXCEPT ![self] = FALSE]
                          /\ tail' = tail
               /\ IF result'[self]
-                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
+                    THEN /\ pc' = [pc EXCEPT ![self] = "Finish"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
-              /\ UNCHANGED << head, disk, history, expected >>
+              /\ UNCHANGED << head, disk, history, tmp, expected >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(expected[self] \in Range(disk), 
-                      "Failure of assertion at line 217, column 18.")
+                      "Failure of assertion at line 269, column 18.")
             /\ disk' = Remove(disk, expected[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
-            /\ UNCHANGED << tail, head, history, result, expected >>
+            /\ UNCHANGED << tail, head, history, tmp, result, expected >>
 
 exp(self) == /\ pc[self] = "exp"
              /\ history' = history \o <<expected[self]>>
              /\ \/ /\ pc' = [pc EXCEPT ![self] = "casC"]
                 \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
                 \/ /\ pc' = [pc EXCEPT ![self] = "enq"]
-             /\ UNCHANGED << tail, head, disk, result, expected >>
+             /\ UNCHANGED << tail, head, disk, tmp, result, expected >>
 
 casC(self) == /\ pc[self] = "casC"
               /\ IF tail = expected[self]
@@ -398,14 +510,14 @@ casC(self) == /\ pc[self] = "casC"
                     ELSE /\ result' = [result EXCEPT ![self] = FALSE]
                          /\ tail' = tail
               /\ IF result'[self]
-                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
+                    THEN /\ pc' = [pc EXCEPT ![self] = "Finish"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "retry"]
-              /\ UNCHANGED << head, disk, history, expected >>
+              /\ UNCHANGED << head, disk, history, tmp, expected >>
 
 retry(self) == /\ pc[self] = "retry"
                /\ expected' = [expected EXCEPT ![self] = tail]
                /\ pc' = [pc EXCEPT ![self] = "casC"]
-               /\ UNCHANGED << tail, head, disk, history, result >>
+               /\ UNCHANGED << tail, head, disk, history, tmp, result >>
 
 enq(self) == /\ pc[self] = "enq"
              /\ IF head = expected[self]
@@ -418,30 +530,38 @@ enq(self) == /\ pc[self] = "enq"
                         /\ pc' = [pc EXCEPT ![self] = "wrt"]
                    ELSE /\ expected' = [expected EXCEPT ![self] = head']
                         /\ pc' = [pc EXCEPT ![self] = "enq"]
-             /\ UNCHANGED << tail, disk, history >>
+             /\ UNCHANGED << tail, disk, history, tmp >>
 
 wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = disk \o << expected[self] >>
              /\ pc' = [pc EXCEPT ![self] = "deq"]
-             /\ UNCHANGED << tail, head, history, result, expected >>
+             /\ UNCHANGED << tail, head, history, tmp, result, expected >>
 
-worker(self) == deq(self) \/ casA(self) \/ wt(self) \/ casB(self)
-                   \/ rd(self) \/ exp(self) \/ casC(self) \/ retry(self)
-                   \/ enq(self) \/ wrt(self)
+Finish(self) == /\ pc[self] = "Finish"
+                /\ pc' = [pc EXCEPT ![self] = "Done"]
+                /\ UNCHANGED << tail, head, disk, history, tmp, result, 
+                                expected >>
+
+worker(self) == deq(self) \/ awtwtA(self) \/ awtwtB(self) \/ casA(self)
+                   \/ wt(self) \/ casB(self) \/ rd(self) \/ exp(self)
+                   \/ casC(self) \/ retry(self) \/ enq(self) \/ wrt(self)
+                   \/ Finish(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
                /\ UNCHANGED vars
 
-Next == (\E self \in Workers: worker(self))
+Next == ProcName
+           \/ (\E self \in Workers: worker(self))
            \/ Terminating
 
 Spec == /\ Init /\ [][Next]_vars
+        /\ WF_vars(ProcName)
         /\ \A self \in Workers : WF_vars(worker(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-10d40cbd539a735690cfe253b4897070
+\* END TRANSLATION
 -----------------------------------------------------------------------------
 
 =============================================================================
