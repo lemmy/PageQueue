@@ -243,7 +243,7 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
                               a) Another worker dequeued the
                                  page (normal case).
                               b) Model checking finished
-                                 In both cases return to deq. *)
+                              In both cases return to deq. *)
                             goto deq;
                          };
                  };
