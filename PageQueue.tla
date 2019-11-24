@@ -225,12 +225,12 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
             \* Iff true CAS tail+1, else done. On successful
             \* CAS return tail, else reread head and tail.
             deq: expected := tail;
-                 if (expected = VIOLATION \/ expected = FINISH) {
-                   goto Finish;
-                 } else if (expected = SUSPEND) {
-                     awtwtA: await AAAA;
-                     awtwtB: await AAAB;
-                     goto deq;
+                 if (expected = VIOLATION) {
+                   goto Done;
+                 } else if (expected = FINISH) {
+                   assert disk = <<>>;
+                   goto Done;
+\*                 } else if (expected = SUSPEND) {
                  } else {
                    \* deq/claim a page (and subsequently at wt read it).
                    casA: CAS(result, tail, expected, expected + 1);
@@ -250,16 +250,18 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
             (* spin until a page is available and can be read or
                all other Workers are "stuck" here too (which
                incidates FINISH). *)
-            wt:  while (expected \notin Range(disk)) {
-                    if (tail = VIOLATION \/ tail = FINISH) {
+            wt1:   if (tail = VIOLATION) {
                        \* Another worker signaled termination.
-                       goto Finish;
+                       goto Done;
+                    } else if (tail = FINISH) {
+                       assert disk = <<>>;
+                       goto Done;
                     } else if (tail = Cardinality(Workers) + head) {
                        \* This worker detected the termination condition.
                        casB: CAS(result, tail, expected, FINISH);
                              if (result) {
                                 \* Successfully signaled termination.
-                                goto Finish;
+                                goto Done;
                              } else {
                                 \* Failed to signal termination.
                                 goto wt;
@@ -284,11 +286,7 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
                  (* a) *) either { 
                              casC: CAS(result, tail, expected, VIOLATION);
                                    if (result) {
-                                      goto Finish;
-                                   } else {
-                                      retry: expected := tail;
-                                             goto casC;
-                                   };
+                                        goto Done;
                            }
                  (* b) *) or { goto deq; }
                  (* c) *) or { goto enq; };
@@ -342,8 +340,6 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
                enq determines the file-name of the page.  *)
             wrt: disk := disk \o << expected >>;
                  goto deq;
-                 
-            Finish: goto Done;
        }
 }
 ***************************************************************************)
