@@ -101,7 +101,7 @@ ASSUME /\ Workers # {}                (* at least one worker *)
 \*FINISH  == -2
 \*VIOLATION == -1
 
-SUSPEND == -3
+\*SUSPEND == -3
 
 Disks == { [ n \in s |-> n ]  : s \in { (1..n) : n \in (1..Pages) } }
 
@@ -124,7 +124,7 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
        
        define {
            \* PCal translator generates ProcSet below definitions, yet the invariants use it.
-           MyProcSet == {"main"} \cup Workers
+           MyProcSet == (*{"main"} \cup *)Workers
            
            ArriveAndAwait(F) == /\ \A p \in MyProcSet : pc[p] \in DOMAIN F
                                 /\ pc' = [ p \in MyProcSet |-> F[pc[p]] ]
@@ -169,35 +169,35 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
                result := FALSE
            }
        }
-       
-       fair process (ProcName = "main") 
-            variables tmp = -1; {
-            
-            m0:  while (TRUE) {
-                         (* CAS tail to SUSPEND and remember old value *)
-                     m1: tmp := tail;
-                         tail := SUSPEND;
-                         \* Setting tail to SUSPEND is to simple because it
-                         \* does not take into account that tail could already
-                         \* be set to FINISH in which case we must not suspend.
-                         (* Setting tail to SUSPEND might override FINISH/VIOLATION  *)
-                         (* set by a worker.  Thus, check for override and set tail  *)
-                         (* from SUSPEND back to tmp. Afterwards, also terminate the *)
-                         (* the phaser to release any worker we might have caused to *)
-                         (* suspend instead of finish.                               *)
-                     m2: if (tmp = VIOLATION \/ tmp = FINISH) {
-                             tail := tmp;
-                             goto Done;
-                         };
-                     m3: await AAAA;
-                         (* Do main thread things and set tail back to t. *)
-                     m4: skip;
-                         tail := tmp;
-                         (* Resume workers. *)
-                         (* Phaser#arriveAndAwaitAdvance *)
-                     m5: await AAAB;
-            };
-       }
+\*       
+\*       fair process (ProcName = "main") 
+\*            variables tmp = -1; {
+\*            
+\*            m0:  while (TRUE) {
+\*                         (* CAS tail to SUSPEND and remember old value *)
+\*                     m1: tmp := tail;
+\*                         tail := SUSPEND;
+\*                         \* Setting tail to SUSPEND is to simple because it
+\*                         \* does not take into account that tail could already
+\*                         \* be set to FINISH in which case we must not suspend.
+\*                         (* Setting tail to SUSPEND might override FINISH/VIOLATION  *)
+\*                         (* set by a worker.  Thus, check for override and set tail  *)
+\*                         (* from SUSPEND back to tmp. Afterwards, also terminate the *)
+\*                         (* the phaser to release any worker we might have caused to *)
+\*                         (* suspend instead of finish.                               *)
+\*                     m2: if (tmp = VIOLATION \/ tmp = FINISH) {
+\*                             tail := tmp;
+\*                             goto Done;
+\*                         };
+\*                     m3: await AAAA;
+\*                         (* Do main thread things and set tail back to t. *)
+\*                     m4: skip;
+\*                         tail := tmp;
+\*                         (* Resume workers. *)
+\*                         (* Phaser#arriveAndAwaitAdvance *)
+\*                     m5: await AAAB;
+\*            };
+\*       }
 
        \* It is acceptable to deviate from strict FIFO (no strict BFS).
        \* Should it be possible to define a bound for the deviation?
@@ -231,6 +231,9 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
                    assert disk = <<>>;
                    goto Done;
 \*                 } else if (expected = SUSPEND) {
+\*                     awtwtA: await AAAA;
+\*                     awtwtB: await AAAB;
+\*                     goto deq;
                  } else {
                    \* deq/claim a page (and subsequently at wt read it).
                    casA: CAS(result, tail, expected, expected + 1);
