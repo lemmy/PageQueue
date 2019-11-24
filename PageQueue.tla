@@ -42,6 +42,31 @@ a) Atomic counters (two) implemented with Java's AtomicLong
 b) Atomic file rename operation implemented with Java's java.nio.Files#move
    (java.nio.file.StandardCopyOption.ATOMIC_MOVE)
 
+---
+
+Fixed-size vs. upper size vs. dynamic page sizes
+
+An always full, fixed-size page is impossible because the actual number of successor
+states is not guaranteed to align with the page size.  Determining the page size
+dynamically---based on the number of successor states---has the disadvantage that we
+end up with tiny pages when we optimize for huge pages if states have few successors.
+Thus, we allocate fixed-size pages, which we try to fill up if possible.  This means
+that we potentially enqueue a page after we have dequeued many (all) other pages.   
+
+Fixed-sized pages:
++ Ease memory-allocation (less fragmentation)
++ Page compaction (ie. "symbolification") probably more effective with fixed-size,
+  large pages.
+
+    This commit marks the end of the design with a dynamic page
+    size (the size of a page is determined by the number of
+    successor states generated).  The next design will model
+    fixed-size pages that TLC will try to fill up if possible.
+    From the perspective of the lock-free protocol, this means
+    that it changes from an alternation between dequeue and enqueue
+    operation to one where multiple dequeue operations are
+    followed by a single enqueue operation.
+
 
 Todo:
 -----
