@@ -291,6 +291,7 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
                        casB: CAS(result, tail, expected, FINISH);
                              if (result) {
                                 \* Successfully signaled termination.
+                                assert disk = <<>>;
                                 goto Done;
                              } else {
                                 \* Failed to signal termination.
@@ -376,7 +377,7 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-f0d7c01c5819c3d9213dd582ade7515a
+\* BEGIN TRANSLATION PCal-3580c664c83de293398ec4e452579217
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -436,7 +437,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF expected'[self] = FINISH
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 246, column 20.")
+                                             "Failure of assertion at line 256, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result >>
@@ -465,7 +466,7 @@ wt1(self) == /\ pc[self] = "wt1"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF tail = FINISH
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 277, column 24.")
+                                             "Failure of assertion at line 287, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ IF tail = Cardinality(Workers) + head
                                          THEN /\ pc' = [pc EXCEPT ![self] = "casB"]
@@ -480,13 +481,15 @@ casB(self) == /\ pc[self] = "casB"
                     ELSE /\ result' = [result EXCEPT ![self] = FALSE]
                          /\ tail' = tail
               /\ IF result'[self]
-                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
+                    THEN /\ Assert(disk = <<>>, 
+                                   "Failure of assertion at line 294, column 33.")
+                         /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, expected >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(expected[self] \in Range(disk), 
-                      "Failure of assertion at line 294, column 18.")
+                      "Failure of assertion at line 305, column 18.")
             /\ disk' = Remove(disk, expected[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
             /\ UNCHANGED << tail, head, history, result, expected >>
@@ -548,7 +551,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-c617e4f9f2d10696aa1371076a67d372
+\* END TRANSLATION TLA-72b5fc861cade3ee61d2bee2e91fadcb
 -----------------------------------------------------------------------------
 
 =============================================================================
