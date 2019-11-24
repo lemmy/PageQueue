@@ -235,7 +235,8 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
                    \* deq/claim a page (and subsequently at wt read it).
                    casA: CAS(result, tail, expected, expected + 1);
                          if (result) {
-                            expected := tail;
+                            (* Set expected to value CASed. *)
+                            expected := expected + 1;
                             goto wt;
                          } else {
                            (* CAS can fail for two reasons:
