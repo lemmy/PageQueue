@@ -103,6 +103,9 @@ ASSUME /\ Workers # {}                (* at least one worker *)
 
 SUSPEND == -3
 
+Disks == { [ n \in s |-> n ]  : s \in { (1..n) : n \in (1..Pages) } }
+
+Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
 -----------------------------------------------------------------------------
 
 (***************************************************************************
@@ -111,11 +114,11 @@ SUSPEND == -3
                  \* last page that has been consumed.  Iff its value is negativ,
                  \* it serves as a signal for consumers/workers (compare FINISH and VIOLATION).
                  tail = 0; \* No page has been dequeued yet.
+                 \* The pages that have been swapped to disk.
+                 disk \in Disks; \* The initial page is initially on-disk.
                  \* A strictly monotonic increasing counter. Its value marks the
                  \* last page that has been consumed.
-                 head = 1; \* A single page with the initial states has been enqueued.
-                 \* The pages that have been swapped to disk.
-                 disk = <<head>>; \* The initial page is initially on-disk.
+                 head = Max(disk); \* A single page with the initial states has been enqueued.
                  \* Auxiliary/History variable to check properties.
                  history = <<>>;
        
