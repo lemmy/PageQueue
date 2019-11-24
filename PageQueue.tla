@@ -139,7 +139,7 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
            \* There are never duplicates in history nor disk.
            \* Upon terminate all work is either done or a violation has been found.
            WSafety == 
-                   /\ IsInjective(history)
+                   /\ IsInjective([ i \in 1..Len(history) |-> history[i][2] ])
                    /\ IsInjective(disk)
                    /\ (\A p \in MyProcSet : pc[p] = "Done") => \/ tail = VIOLATION
                                                                \/ /\ tail = FINISH
@@ -283,6 +283,7 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
             \* worker, or c) unseen states are found and 
             \* have to be enqueued.
             \* Non-deterministically choose steps.
+            exp: history := history \o << <<self, expected>> >>;
                  (* c) *) either { goto enq; };
                  (* b) *) or { goto deq; };
                  (* a) *) or { casC: CAS(result, tail, expected, VIOLATION);
