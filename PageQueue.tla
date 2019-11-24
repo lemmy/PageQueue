@@ -283,14 +283,16 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
             \* worker, or c) unseen states are found and 
             \* have to be enqueued.
             \* Non-deterministically choose steps.
-            exp: history := history \o <<expected>>;
-                 (* a) *) either { 
-                             casC: CAS(result, tail, expected, VIOLATION);
-                                   if (result) {
+                 (* c) *) either { goto enq; };
+                 (* b) *) or { goto deq; };
+                 (* a) *) or { casC: CAS(result, tail, expected, VIOLATION);
+                                     if (result) {
                                         goto Done;
-                           }
-                 (* b) *) or { goto deq; }
-                 (* c) *) or { goto enq; };
+                                     } else {
+                                        retry: expected := tail;
+                                               goto casC;
+                                     };
+                             };
 
 
            (* 3. Stage *)
