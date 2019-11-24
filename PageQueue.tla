@@ -55,7 +55,7 @@ https://github.com/lemmy/PageQueue/commit/f2b4b3ba1cf77aa5683873de28873d53ad231b
 ----------------------------- MODULE PageQueue -----------------------------
 EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, Naturals
 
-CONSTANT Pages, Workers
+CONSTANT Pages, Workers, FINISH, VIOLATION
 
 ASSUME /\ Workers # {}                (* at least one worker *)
        /\ Pages \in Nat               (* maximum number of pages to write *)
@@ -98,8 +98,8 @@ ASSUME /\ Workers # {}                (* at least one worker *)
 \* TODO: Separation into Finish and Violation not needed by the implementation.
 \* The implementation just returns null. Instead, only the spec uses it to
 \* state stronger invariants. 
-FINISH  == -1
-VIOLATION == -2
+\*FINISH  == -2
+\*VIOLATION == -1
 
 SUSPEND == -3
 
