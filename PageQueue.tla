@@ -53,10 +53,20 @@ end up with tiny pages when we optimize for huge pages if states have few succes
 Thus, we allocate fixed-size pages, which we try to fill up if possible.  This means
 that we potentially enqueue a page after we have dequeued many (all) other pages.   
 
+This algorithm works---all pages get explored and threads terminate afterwards---because
+the ratio between dequeues and enqueues is an invariant.  Each dequeue operation is
+always followed by an enqueue operation.  
+
+FINISH iff tail = head + Cardinality(Workers). Disk to be empty is a necessary but not
+a sufficient condition for termination (the last page might have been dequeued and the
+new page---with the successor states---has not yet been enqueued.
+
 Fixed-sized pages:
 + Ease memory-allocation (less fragmentation)
++ Reuse allocate pages (a deqeued page can become the next enqueue page (with the
+  old states replaced)
 + Page compaction (ie. "symbolification") probably more effective with fixed-size,
-  large pages.
+  large pages
 
     This commit marks the end of the design with a dynamic page
     size (the size of a page is determined by the number of
@@ -67,6 +77,10 @@ Fixed-sized pages:
     operation to one where multiple dequeue operations are
     followed by a single enqueue operation.
 
+Fixed-size pages only covers half of the story. It is really about filling up pages
+as an optimization by reducing the overall number of pages.  Fewer pages means fewer
+IO overhead of creating, deleting, ... files.  In order to fill up pages, we have to
+switch from pairs of enq and deq operations to a 1:n ratio where n \in 0..  
 
 Todo:
 -----
@@ -74,6 +88,10 @@ Todo:
 Worker suspension as prototyped in
 https://github.com/lemmy/PageQueue/commit/f2b4b3ba1cf77aa5683873de28873d53ad231be1
 
+This can likely be done with a high-level synchronization primitive such as a
+barrier implemented by a (Java) phaser.  A first version has been speced with
+the main process but abandoned for now.
+ 
 (***************************************************************************)
 
 
