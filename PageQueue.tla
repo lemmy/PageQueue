@@ -53,13 +53,17 @@ end up with tiny pages when we optimize for huge pages if states have few succes
 Thus, we allocate fixed-size pages, which we try to fill up if possible.  This means
 that we potentially enqueue a page after we have dequeued many (all) other pages.   
 
+---
+
 This algorithm works---all pages get explored and threads terminate afterwards---because
 the ratio between dequeues and enqueues is an invariant.  Each dequeue operation is
-always followed by an enqueue operation.  
+always followed by an enqueue operation.  When head >= tail, we know that not all work
+is done. When tail > head /\ tail < head + Cardinality(Workers), a subset of the
+workers are waiting for new pages.  FINISH iff tail = head + Cardinality(Workers).
 
-FINISH iff tail = head + Cardinality(Workers). Disk to be empty is a necessary but not
-a sufficient condition for termination (the last page might have been dequeued and the
-new page---with the successor states---has not yet been enqueued.
+Disk to be empty is a necessary but not a sufficient condition for termination (the
+last page might have been dequeued and the new page---with the successor states---has
+not yet been enqueued).
 
 Fixed-sized pages:
 + Ease memory-allocation (less fragmentation)
@@ -455,7 +459,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF expected'[self] = FINISH
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 256, column 20.")
+                                             "Failure of assertion at line 278, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result >>
@@ -484,7 +488,7 @@ wt1(self) == /\ pc[self] = "wt1"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF tail = FINISH
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 287, column 24.")
+                                             "Failure of assertion at line 309, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ IF tail = Cardinality(Workers) + head
                                          THEN /\ pc' = [pc EXCEPT ![self] = "casB"]
@@ -500,14 +504,14 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = <<>>, 
-                                   "Failure of assertion at line 294, column 33.")
+                                   "Failure of assertion at line 316, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, expected >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(expected[self] \in Range(disk), 
-                      "Failure of assertion at line 305, column 18.")
+                      "Failure of assertion at line 327, column 18.")
             /\ disk' = Remove(disk, expected[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
             /\ UNCHANGED << tail, head, history, result, expected >>
@@ -569,7 +573,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-72b5fc861cade3ee61d2bee2e91fadcb
+\* END TRANSLATION TLA-f45e67420b316aa960f69a65ac9635b6
 -----------------------------------------------------------------------------
 
 =============================================================================
