@@ -102,6 +102,14 @@ the main process but abandoned for now.
 ----------------------------- MODULE PageQueue -----------------------------
 EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, Naturals
 
+\* The largest element in the given sequence assuming the elements have an
+\* order. 
+Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
+
+\* seq is assumed to be a sequence of sequences. Equals the sequence of
+\* elements where each element is the i-th element of the nested sequences.
+Reduce(seq, i) == [ idx \in 1..Len(seq) |-> seq[idx][i] ]
+
 \* TODO: Separation into Finish and Violation not needed by the implementation.
 \* The implementation just returns null. Instead, only the spec uses it to
 \* be able to state stronger invariants. 
@@ -145,10 +153,9 @@ ASSUME /\ Workers # {}                (* at least one worker *)
 (*     inside the CS.                                                      *)
 (***************************************************************************)
 
-
+\* {<<1>>, <<1,2>>, <<1,2,3>>, ...}
 Disks == { [ n \in s |-> n ]  : s \in { (1..n) : n \in (1..Pages) } }
 
-Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
 -----------------------------------------------------------------------------
 
 (***************************************************************************
@@ -174,7 +181,7 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
            \* There are never duplicates in history nor disk.
            \* Upon terminate all work is either done or a violation has been found.
            WSafety == 
-                   /\ IsInjective([ i \in 1..Len(history) |-> history[i][2] ])
+                   /\ IsInjective(Reduce(history))
                    /\ IsInjective(disk)
                    /\ (\A p \in ProcSet : pc[p] = "Done") => \/ tail = VIOLATION
                                                                \/ /\ tail = FINISH
@@ -190,8 +197,10 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
            \* are processed in a deterministic order.  Thus, don't expect an actual order of
            \* pages which is why history is converted into a set.
            \* Or a violation has been found in which case a prefix of all pages has been processed.
-           WLiveness2 == /\ <>[](\/ (tail = FINISH /\ Range(history) = 1..Pages)
-                                 \/ (tail = VIOLATION /\ Range(history) \subseteq 1..Pages)) 
+           WLiveness2 == /\ <>[] /\ Range(Reduce(history)) \subseteq 1..(Pages + 1 + Cardinality(Workers))
+                                 /\ \/ /\ tail = FINISH
+                                       /\ disk = <<>>
+                                    \/ tail = VIOLATION
                         
        }
        
