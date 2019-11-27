@@ -166,14 +166,6 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
                  history = <<>>;
        
        define {
-           \* PCal translator generates ProcSet below definitions, yet the invariants use it.
-           MyProcSet == (*{"main"} \cup *)Workers
-           
-           ArriveAndAwait(F) == /\ \A p \in MyProcSet : pc[p] \in DOMAIN F
-                                /\ pc' = [ p \in MyProcSet |-> F[pc[p]] ]
-       
-           AAAA == ArriveAndAwait([ m3 |-> "m4", Done |-> "Done" , awtwtA |-> "awtwtB" ])
-           AAAB == ArriveAndAwait([ m5 |-> "m0", Done |-> "Done" , awtwtB |-> "deq" ])
        
            \* state constraint
            TotalWork == Len(history) <= Pages
@@ -184,14 +176,14 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
            WSafety == 
                    /\ IsInjective([ i \in 1..Len(history) |-> history[i][2] ])
                    /\ IsInjective(disk)
-                   /\ (\A p \in MyProcSet : pc[p] = "Done") => \/ tail = VIOLATION
+                   /\ (\A p \in ProcSet : pc[p] = "Done") => \/ tail = VIOLATION
                                                                \/ /\ tail = FINISH
                                                                   /\ disk = <<>>
            
            \* If a violation is found, it is possible that only a single worker explored states ("exp")
-           WLiveness == /\ \A w \in MyProcSet: pc[w] = "Done" => \/ tail = VIOLATION
-                                                                 \/ /\ <>(tail = Pages /\ head = Pages)
-                                                                    /\ <>[](tail = FINISH)
+           WLiveness == /\ \A w \in ProcSet: pc[w] = "Done" => \/ tail = VIOLATION
+                                                               \/ /\ <>(tail = Pages /\ head = Pages)
+                                                                  /\ <>[](tail = FINISH)
 
            \* Eventually, all pages have been processed meaning history contains all pages.
            \* However, since PageQueue relaxes strict FIFO there is no guarantee that pages
