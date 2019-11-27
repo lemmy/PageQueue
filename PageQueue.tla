@@ -102,6 +102,9 @@ the main process but abandoned for now.
 ----------------------------- MODULE PageQueue -----------------------------
 EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, Naturals
 
+\* TODO: Separation into Finish and Violation not needed by the implementation.
+\* The implementation just returns null. Instead, only the spec uses it to
+\* be able to state stronger invariants. 
 CONSTANT Pages, Workers, FINISH, VIOLATION
 
 ASSUME /\ Workers # {}                (* at least one worker *)
@@ -142,13 +145,6 @@ ASSUME /\ Workers # {}                (* at least one worker *)
 (*     inside the CS.                                                      *)
 (***************************************************************************)
 
-\* TODO: Separation into Finish and Violation not needed by the implementation.
-\* The implementation just returns null. Instead, only the spec uses it to
-\* state stronger invariants. 
-\*FINISH  == -2
-\*VIOLATION == -1
-
-\*SUSPEND == -3
 
 Disks == { [ n \in s |-> n ]  : s \in { (1..n) : n \in (1..Pages) } }
 
