@@ -336,6 +336,15 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
             \* have to be enqueued.
             \* Non-deterministically choose steps.
             exp: history := history \o << <<self, t>> >>;
+                 if (Len(history) > Pages) {
+                          \* Bound spec to a finite state space. 
+                          \* Using a state constraint such as 
+                          \* Len(history) < Pages is more elegant
+                          \* but causes trouble when checking
+                          \* liveness because the property is
+                          \* vacuously true.  
+                          goto deq;
+                 } else {
                  (* c) *) either { goto enq; };
                  (* b) *) or { goto deq; };
                  (* a) *) or { casC: CAS(result, tail, t, VIOLATION);
@@ -346,6 +355,7 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
                                                goto casC;
                                      };
                              };
+                 };
 
 
            (* 3. Stage *)
