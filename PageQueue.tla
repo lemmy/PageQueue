@@ -36,7 +36,7 @@ Random Thoughts:
 
 ---
 
-The algorithm relys on two synchronization primitives:
+The algorithm relies on two synchronization primitives:
 
 a) Atomic counters (two) implemented with Java's AtomicLong
 b) Atomic file rename operation implemented with Java's java.nio.Files#move
@@ -181,23 +181,23 @@ Disks == { [ n \in s |-> n ]  : s \in { (1..n) : n \in (1..Pages) } }
            \* There are never duplicates in history nor disk.
            \* Upon terminate all work is either done or a violation has been found.
            WSafety == 
-                   /\ IsInjective(Reduce(history))
+                   /\ IsInjective(Reduce(history, 2))
                    /\ IsInjective(disk)
-                   /\ (\A p \in ProcSet : pc[p] = "Done") => \/ tail = VIOLATION
+                   /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
                                                                \/ /\ tail = FINISH
                                                                   /\ disk = <<>>
            
            \* If a violation is found, it is possible that only a single worker explored states ("exp")
-           WLiveness == /\ \A w \in ProcSet: pc[w] = "Done" => \/ tail = VIOLATION
+           WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
                                                                \/ /\ <>(tail = Pages /\ head = Pages)
                                                                   /\ <>[](tail = FINISH)
 
            \* Eventually, all pages have been processed meaning history contains all pages.
            \* However, since PageQueue relaxes strict FIFO there is no guarantee that pages
            \* are processed in a deterministic order.  Thus, don't expect an actual order of
-           \* pages which is why history is converted into a set.
+           \* pages, which is why history is converted into a set.
            \* Or a violation has been found in which case a prefix of all pages has been processed.
-           WLiveness2 == /\ <>[] /\ Range(Reduce(history)) \subseteq 1..(Pages + 1 + Cardinality(Workers))
+           WLiveness2 == /\ <>[] /\ Range(Reduce(history, 2)) \subseteq 1..(Pages + 1 + Cardinality(Workers))
                                  /\ \/ /\ tail = FINISH
                                        /\ disk = <<>>
                                     \/ tail = VIOLATION
@@ -406,43 +406,36 @@ Disks == { [ n \in s |-> n ]  : s \in { (1..n) : n \in (1..Pages) } }
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-657579f916d7a8bbd190c4d63f9c756c
+\* BEGIN TRANSLATION PCal-d6846614c9b35b31b4810203913c81b0
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
-MyProcSet ==                   Workers
-
-ArriveAndAwait(F) == /\ \A p \in MyProcSet : pc[p] \in DOMAIN F
-                     /\ pc' = [ p \in MyProcSet |-> F[pc[p]] ]
-
-AAAA == ArriveAndAwait([ m3 |-> "m4", Done |-> "Done" , awtwtA |-> "awtwtB" ])
-AAAB == ArriveAndAwait([ m5 |-> "m0", Done |-> "Done" , awtwtB |-> "deq" ])
-
-
 TotalWork == Len(history) <= Pages
 
 
 
 
 WSafety ==
-        /\ IsInjective([ i \in 1..Len(history) |-> history[i][2] ])
+        /\ IsInjective(Reduce(history, 2))
         /\ IsInjective(disk)
-        /\ (\A p \in MyProcSet : pc[p] = "Done") => \/ tail = VIOLATION
+        /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
                                                     \/ /\ tail = FINISH
                                                        /\ disk = <<>>
 
 
-WLiveness == /\ \A w \in MyProcSet: pc[w] = "Done" => \/ tail = VIOLATION
-                                                      \/ /\ <>(tail = Pages /\ head = Pages)
-                                                         /\ <>[](tail = FINISH)
+WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
+                                                    \/ /\ <>(tail = Pages /\ head = Pages)
+                                                       /\ <>[](tail = FINISH)
 
 
 
 
 
 
-WLiveness2 == /\ <>[](\/ (tail = FINISH /\ Range(history) = 1..Pages)
-                      \/ (tail = VIOLATION /\ Range(history) \subseteq 1..Pages))
+WLiveness2 == /\ <>[] /\ Range(Reduce(history, 2)) \subseteq 1..(Pages + 1 + Cardinality(Workers))
+                      /\ \/ /\ tail = FINISH
+                            /\ disk = <<>>
+                         \/ tail = VIOLATION
 
 VARIABLES result, t, h
 
@@ -467,7 +460,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = FINISH
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 278, column 20.")
+                                             "Failure of assertion at line 275, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -496,7 +489,7 @@ wt1(self) == /\ pc[self] = "wt1"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF tail = FINISH
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 309, column 24.")
+                                             "Failure of assertion at line 306, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ IF tail = Cardinality(Workers) + head
                                          THEN /\ pc' = [pc EXCEPT ![self] = "casB"]
@@ -512,23 +505,25 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = <<>>, 
-                                   "Failure of assertion at line 316, column 33.")
+                                   "Failure of assertion at line 313, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in Range(disk), 
-                      "Failure of assertion at line 327, column 18.")
+                      "Failure of assertion at line 324, column 18.")
             /\ disk' = Remove(disk, t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
             /\ UNCHANGED << tail, head, history, result, t, h >>
 
 exp(self) == /\ pc[self] = "exp"
              /\ history' = history \o << <<self, t[self]>> >>
-             /\ \/ /\ pc' = [pc EXCEPT ![self] = "enq"]
-                \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
-                \/ /\ pc' = [pc EXCEPT ![self] = "casC"]
+             /\ IF Len(history') > Pages
+                   THEN /\ pc' = [pc EXCEPT ![self] = "deq"]
+                   ELSE /\ \/ /\ pc' = [pc EXCEPT ![self] = "enq"]
+                           \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
+                           \/ /\ pc' = [pc EXCEPT ![self] = "casC"]
              /\ UNCHANGED << tail, disk, head, result, t, h >>
 
 casC(self) == /\ pc[self] = "casC"
@@ -586,7 +581,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-0c78bfffa3d3b2183c1c2118aaa8586f
+\* END TRANSLATION TLA-46cc7d6499b02f617f8fbe6a8880613c
 -----------------------------------------------------------------------------
 
 =============================================================================
