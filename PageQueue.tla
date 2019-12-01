@@ -194,29 +194,16 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
                    /\ IsInjective(Enqueued)
                    /\ IsInjective(Dequeued)
                    /\ IsInjective(disk)
-                   /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = vio
-                                                             \/ /\ tail = fin
-                                                                /\ disk = <<>>
-           
-           \* If a violation is found, it is possible that only a single worker explored states ("exp")
-           WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = vio
-                                                               \/ /\ <>(tail = Pages /\ head = Pages)
-                                                                  /\ <>[](tail = fin)
-
-           \* Eventually, all pages have been processed meaning history contains all pages.
-           \* However, since PageQueue relaxes strict FIFO there is no guarantee that pages
-           \* are processed in a deterministic order.  Thus, don't expect an actual order of
-           \* pages, which is why history is converted into a set.
-           \* Or a violation has been found in which case a prefix of all pages has been processed.
-           WLiveness2 ==       <>[] \/ /\ tail = fin
-                                       /\ disk = <<>>
-                                       \* Any enq'ed page has also been deq'ed.
-                                       /\ Range(Enqueued) = Range(Dequeued)
-                                       \* Due to the way how we made the state space of the spec
-                                       \* finite, admissible behaviors can create more pages. I'm too
-                                       \* lazy to find the actual bound.
-                                       /\ 1..Pages \subseteq Range(Reduce(history, "page"))
-                                    \/ /\ tail = vio
+                   /\ (\A p \in Workers : pc[p] = "Done") => 
+                       \/ tail = vio
+                       \/ /\ tail = fin
+                          /\ disk = <<>>
+                          \* Any enq'ed page has also been deq'ed.
+                          /\ Range(Enqueued) = Range(Dequeued)
+                          \* Due to the way how we made the state space of the spec
+                          \* finite, admissible behaviors can create more pages. I'm too
+                          \* lazy to find the actual bound.
+                          /\ 1..Pages \subseteq Range(Reduce(history, "page"))
        }
        
        (* Atomicity is implicit due to the absence of labels. *)      
@@ -448,7 +435,7 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-f3f3467fb6bd26ae4e096e8de4104c89
+\* BEGIN TRANSLATION PCal-d65c57e381dc608f11d2725c56bda426
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -469,25 +456,11 @@ WSafety ==
                                                   \/ /\ tail = fin
                                                      /\ disk = <<>>
 
-
-WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = vio
-                                                    \/ /\ <>(tail = Pages /\ head = Pages)
-                                                       /\ <>[](tail = fin)
+                                                     /\ Range(Enqueued) = Range(Dequeued)
 
 
 
-
-
-
-WLiveness2 ==       <>[] \/ /\ tail = fin
-                            /\ disk = <<>>
-
-                            /\ Range(Enqueued) = Range(Dequeued)
-
-
-
-                            /\ 1..Pages \subseteq Range(Reduce(history, "page"))
-                         \/ /\ tail = vio
+                                                     /\ 1..Pages \subseteq Range(Reduce(history, "page"))
 
 VARIABLES result, t, h
 
@@ -512,7 +485,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 290, column 20.")
+                                             "Failure of assertion at line 276, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -542,7 +515,7 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 321, column 24.")
+                                             "Failure of assertion at line 307, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF tail = Cardinality(Workers) + head
@@ -568,14 +541,14 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = <<>>, 
-                                   "Failure of assertion at line 328, column 33.")
+                                   "Failure of assertion at line 314, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in Range(disk), 
-                      "Failure of assertion at line 345, column 18.")
+                      "Failure of assertion at line 331, column 18.")
             /\ disk' = Remove(disk, t[self])
             /\ history' = history \o << Op(self, "deq", t[self]) >>
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -600,7 +573,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = -1, 
-                         "Failure of assertion at line 419, column 20.")
+                         "Failure of assertion at line 405, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
@@ -664,7 +637,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-4962b344584eca61f925bbc762a1d6fc
+\* END TRANSLATION TLA-037ee48c6dde150f2af59a00ca1b0745
 -----------------------------------------------------------------------------
 
 =============================================================================
