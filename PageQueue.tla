@@ -110,13 +110,16 @@ Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
 \* each element is the i-th element of the nested functions.
 Reduce(seq, i) == [ idx \in 1..Len(seq) |-> seq[idx][i] ]
 
-\* TODO: Separation into Finish and Violation not needed by the implementation.
-\* The implementation just returns null. Instead, only the spec uses it to
-\* be able to state stronger invariants. 
-CONSTANT Pages, Workers, FINISH, VIOLATION
+CONSTANT Pages, Workers
 
 ASSUME /\ Workers # {}                (* at least one worker *)
        /\ Pages \in Nat               (* maximum number of pages to write *)
+
+\* TODO: Separation into Finish and Violation not needed by the implementation.
+\* The implementation just returns null. Instead, only the spec uses it to
+\* be able to state stronger invariants. 
+fin == CHOOSE fin : fin \notin Nat
+vio == CHOOSE vio : vio \notin Nat \cup {fin}
 
 -----------------------------------------------------------------------------
 (***************************************************************************)
@@ -166,7 +169,7 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
 --algorithm PageQueue {
        variables \* A strictly monotonic increasing counter. Its value marks the
                  \* last page that has been consumed.  Iff its value is negativ,
-                 \* it serves as a signal for consumers/workers (compare FINISH and VIOLATION).
+                 \* it serves as a signal for consumers/workers (compare fin and vio).
                  tail = 0; \* No page has been dequeued yet.
                  \* The pages that have been swapped to disk.
                  disk \in Disks; \* The initial page is initially on-disk.
@@ -178,37 +181,42 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
        
        define {
        
-           \* state constraint
-           TotalWork == Len(history) <= Pages
+           Enqueued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"), "page")
+           Dequeued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"), "page")
+       
+           \* Not a state constraint but instead explicitly in the page.
+           TotalWork == Len(Enqueued) > Pages \/ Len(Dequeued) > Pages
        
            \* Safety Property:
            \* There are never duplicates in history nor disk.
            \* Upon terminate all work is either done or a violation has been found.
            WSafety == 
-                   /\ IsInjective(Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"), "page"))
-                   /\ IsInjective(Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"), "page"))
+                   /\ IsInjective(Enqueued)
+                   /\ IsInjective(Dequeued)
                    /\ IsInjective(disk)
-                   /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
-                                                               \/ /\ tail = FINISH
-                                                                  /\ disk = <<>>
+                   /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = vio
+                                                             \/ /\ tail = fin
+                                                                /\ disk = <<>>
            
            \* If a violation is found, it is possible that only a single worker explored states ("exp")
-           WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
+           WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = vio
                                                                \/ /\ <>(tail = Pages /\ head = Pages)
-                                                                  /\ <>[](tail = FINISH)
+                                                                  /\ <>[](tail = fin)
 
            \* Eventually, all pages have been processed meaning history contains all pages.
            \* However, since PageQueue relaxes strict FIFO there is no guarantee that pages
            \* are processed in a deterministic order.  Thus, don't expect an actual order of
            \* pages, which is why history is converted into a set.
            \* Or a violation has been found in which case a prefix of all pages has been processed.
-           WLiveness2 == /\ <>[] /\ Range(Reduce(history, "page")) \subseteq 1..(Pages)
-                                 /\ \/ /\ tail = FINISH
+           WLiveness2 ==       <>[] \/ /\ tail = fin
                                        /\ disk = <<>>
                                        \* Any enq'ed page has also been deq'ed.
-                                       /\ Range(Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"), "page")) = Range(Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"), "page"))
-                                    \/ tail = VIOLATION
-                        
+                                       /\ Range(Enqueued) = Range(Dequeued)
+                                       \* Due to the way how we made the state space of the spec
+                                       \* finite, admissible behaviors can create more pages. I'm too
+                                       \* lazy to find the actual bound.
+                                       /\ 1..Pages \subseteq Range(Reduce(history, "page"))
+                                    \/ /\ tail = vio
        }
        
        (* Atomicity is implicit due to the absence of labels. *)      
@@ -230,13 +238,13 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
 \*                         tail := SUSPEND;
 \*                         \* Setting tail to SUSPEND is to simple because it
 \*                         \* does not take into account that tail could already
-\*                         \* be set to FINISH in which case we must not suspend.
-\*                         (* Setting tail to SUSPEND might override FINISH/VIOLATION  *)
+\*                         \* be set to fin in which case we must not suspend.
+\*                         (* Setting tail to SUSPEND might override fin/vio  *)
 \*                         (* set by a worker.  Thus, check for override and set tail  *)
 \*                         (* from SUSPEND back to tmp. Afterwards, also terminate the *)
 \*                         (* the phaser to release any worker we might have caused to *)
 \*                         (* suspend instead of finish.                               *)
-\*                     m2: if (tmp = VIOLATION \/ tmp = FINISH) {
+\*                     m2: if (tmp = vio \/ tmp = fin) {
 \*                             tail := tmp;
 \*                             goto Done;
 \*                         };
@@ -268,7 +276,7 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
        (* on a violation of an invariant or be terminated by receiving a *)
        (* signal from another worker. *)
        fair process (worker \in Workers) 
-            variables result = FALSE, t = 0, h = 0; {
+            variables result = FALSE, t = 0, h = -1; {
             
             (* 1. Stage *)
             
@@ -276,9 +284,9 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
             \* Iff true CAS tail+1, else done. On successful
             \* CAS return tail, else reread head and tail.
             deq: t := tail;
-                 if (t = VIOLATION) {
+                 if (t = vio) {
                    goto Done;
-                 } else if (t = FINISH) {
+                 } else if (t = fin) {
                    assert disk = <<>>;
                    goto Done;
 \*                 } else if (t = SUSPEND) {
@@ -304,17 +312,17 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
 
             (* spin until a page is available and can be read or
                all other Workers are "stuck" here too (which
-               incidates FINISH). *)
+               incidates fin). *)
             wt: while (t \notin Range(disk)) {
-            wt1:   if (tail = VIOLATION) {
+            wt1:   if (tail = vio) {
                        \* Another worker signaled termination.
                        goto Done;
-                    } else if (tail = FINISH) {
+                    } else if (tail = fin) {
                        assert disk = <<>>;
                        goto Done;
                     } else if (tail = Cardinality(Workers) + head) {
                        \* This worker detected the termination condition.
-                       casB: CAS(result, tail, t, FINISH);
+                       casB: CAS(result, tail, t, fin);
                              if (result) {
                                 \* Successfully signaled termination.
                                 assert disk = <<>>;
@@ -323,45 +331,37 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
                                 \* Failed to signal termination.
                                 goto wt;
                              }
+                    } else if (head <= Cardinality(Workers) + tail /\ h # -1) {
+                        \* write to disk.
+                        disk := disk \o << h >>;
+                        history := history \o << Op(self, "enq", h) >>;
+                        h := -1;
+                        goto wt;
                     } else {
-                       \* Page not yet readable (the writer hasn't finished yet). 
-                       skip; \* goto wt;
+                        \* Page not yet readable (the writer hasn't fined yet). 
+                        skip; \* goto wt;
                     }
                  };
             rd:  assert t \in Range(disk);
                  disk := Remove(disk, t);
-
+                 history := history \o << Op(self, "deq", t) >>;
+                 
             (* 2. Stage *)
 
-            \* Evaluate next-state relation: This a) might
-            \* terminate model checking iff a violation is
-            \* found, b) no unseen states are found by this
-            \* worker, or c) unseen states are found and 
-            \* have to be enqueued.
-            \* Non-deterministically choose steps.
-            exp: history := history \o << Op(self, "deq", t) >>;
-                 if (Len(history) > Pages) {
+            \* Evaluate next-state relation.
+            exp: if (TotalWork) {
                           \* Bound spec to a finite state space. 
                           \* Using a state constraint such as 
                           \* Len(history) < Pages is more elegant
                           \* but causes trouble when checking
                           \* liveness because the property is
-                          \* vacuously true.  
+                          \* vacuously true (see Specifying Systems
+                          \* section 13.4.5).  
                           goto deq;
                  } else {
-                 (* c) *) either { goto enq; };
-                 (* b) *) or { goto deq; };
-                 (* a) *) or { casC: CAS(result, tail, t, VIOLATION);
-                                     if (result) {
-                                        goto Done;
-                                     } else {
-                                        retry: t := tail;
-                                               goto casC;
-                                     };
-                             };
+                          goto enq;
                  };
-
-
+            
            (* 3. Stage *)
             
            (* enqueue a page. *)
@@ -394,59 +394,100 @@ Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
            \* close. E.g. during the beginning and end of model
            \* checking (to some extend this is what getCache in the
            \* existing implementation is used for).
-            enq: h := head;
-            enq2: CAS(result, head, h, h + 1);
-                  if (result) {
-                     \* Name of the disk-file which is going to be written in wrt.
-                     h := h + 1;
-                     goto wrt;
-                  } else {
-                     \* Another worker beat us to write the next page, thus try again.
-                     goto enq;
-                  };
+           
+           (*
+                              h = -1              |  h # -1
+                            ----------------------|---------------
+            violation:       CAS(fin),goto Done   | CAS(fin), goto Done
+            no succ:         (claim,) goto deq    | goto deq
+            fits into page:  claim, goto deq      | goto deq
+            exactly fits p:  claim, wrt, goto deq | wrt, godo deq
+            exceeds page:    claim, wrt, goto enq | wrt, goto enq
+            
+            ("goto enq" means we have to end up claiming a new page!!!)
+           *)
+                 (* a1) h unchanged, goto deq: Added to an existing page (goto deq above) *)
+                 (* a2) h unchanged, goto wrt: Filled an existing page *)
+                 (* b1) CAS of h, goto deq: Created and added to the page *)
+                 (* b2) CAS of h, goto wrt: Created and filled the page *)
+            enq: if (h = -1) {
+                      either { goto violation; } or { goto claim; };
+                 } else if (h # -1) {
+                      either { goto violation; } or { goto wrt; } or { goto deq; };
+                 }; 
+
+            claim: assert h = -1;
+                   clm1:  h := head;
+                   clm2:  CAS(result, head, h, h + 1);
+                          if (result) {
+                             h := h + 1;
+                             either { goto deq; } 
+                                 or { goto wrt; };
+                          } else {
+                              goto clm1;
+                          };
             
             (* write page to disk. Intuitively, one would write the
                the page first (wrt) before enqueueing it (enq). However,
                enq determines the file-name of the page.  *)
             wrt: disk := disk \o << h >>;
                  history := history \o << Op(self, "enq", h) >>;
-                 goto deq;
+                 h := -1;
+                 either { goto deq; } or { goto exp; };
+                     
+            \*-------------------------------------------------
+            
+            \* TODO The implementation will first have already claimed a page.
+            violation: CAS(result, tail, t, vio);
+                       if (result) {
+                             goto Done;
+                       } else {
+                             retry: t := tail;
+                             goto violation;
+                       };           
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-19800b70b59c9d920ed163d39a13f633
+\* BEGIN TRANSLATION PCal-f3f3467fb6bd26ae4e096e8de4104c89
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
-TotalWork == Len(history) <= Pages
+Enqueued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"), "page")
+Dequeued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"), "page")
+
+
+TotalWork == Len(Enqueued) > Pages \/ Len(Dequeued) > Pages
 
 
 
 
 WSafety ==
-        /\ IsInjective(Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"), "page"))
-        /\ IsInjective(Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"), "page"))
+        /\ IsInjective(Enqueued)
+        /\ IsInjective(Dequeued)
         /\ IsInjective(disk)
-        /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = VIOLATION
-                                                    \/ /\ tail = FINISH
-                                                       /\ disk = <<>>
+        /\ (\A p \in Workers : pc[p] = "Done") => \/ tail = vio
+                                                  \/ /\ tail = fin
+                                                     /\ disk = <<>>
 
 
-WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = VIOLATION
+WLiveness == /\ \A w \in Workers: pc[w] = "Done" => \/ tail = vio
                                                     \/ /\ <>(tail = Pages /\ head = Pages)
-                                                       /\ <>[](tail = FINISH)
+                                                       /\ <>[](tail = fin)
 
 
 
 
 
 
-WLiveness2 == /\ <>[] /\ Range(Reduce(history, "page")) \subseteq 1..(Pages)
-                      /\ \/ /\ tail = FINISH
+WLiveness2 ==       <>[] \/ /\ tail = fin
                             /\ disk = <<>>
 
-                            /\ Range(Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"), "page")) = Range(Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"), "page"))
-                         \/ tail = VIOLATION
+                            /\ Range(Enqueued) = Range(Dequeued)
+
+
+
+                            /\ 1..Pages \subseteq Range(Reduce(history, "page"))
+                         \/ /\ tail = vio
 
 VARIABLES result, t, h
 
@@ -462,16 +503,16 @@ Init == (* Global variables *)
         (* Process worker *)
         /\ result = [self \in Workers |-> FALSE]
         /\ t = [self \in Workers |-> 0]
-        /\ h = [self \in Workers |-> 0]
+        /\ h = [self \in Workers |-> -1]
         /\ pc = [self \in ProcSet |-> "deq"]
 
 deq(self) == /\ pc[self] = "deq"
              /\ t' = [t EXCEPT ![self] = tail]
-             /\ IF t'[self] = VIOLATION
+             /\ IF t'[self] = vio
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
-                   ELSE /\ IF t'[self] = FINISH
+                   ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 281, column 20.")
+                                             "Failure of assertion at line 290, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -496,69 +537,79 @@ wt(self) == /\ pc[self] = "wt"
             /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
 wt1(self) == /\ pc[self] = "wt1"
-             /\ IF tail = VIOLATION
+             /\ IF tail = vio
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
-                   ELSE /\ IF tail = FINISH
+                        /\ UNCHANGED << disk, history, h >>
+                   ELSE /\ IF tail = fin
                               THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 312, column 24.")
+                                             "Failure of assertion at line 321, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
+                                   /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF tail = Cardinality(Workers) + head
                                          THEN /\ pc' = [pc EXCEPT ![self] = "casB"]
-                                         ELSE /\ TRUE
-                                              /\ pc' = [pc EXCEPT ![self] = "wt"]
-             /\ UNCHANGED << tail, disk, head, history, result, t, h >>
+                                              /\ UNCHANGED << disk, history, h >>
+                                         ELSE /\ IF head <= Cardinality(Workers) + tail /\ h[self] # -1
+                                                    THEN /\ disk' = disk \o << h[self] >>
+                                                         /\ history' = history \o << Op(self, "enq", h[self]) >>
+                                                         /\ h' = [h EXCEPT ![self] = -1]
+                                                         /\ pc' = [pc EXCEPT ![self] = "wt"]
+                                                    ELSE /\ TRUE
+                                                         /\ pc' = [pc EXCEPT ![self] = "wt"]
+                                                         /\ UNCHANGED << disk, 
+                                                                         history, 
+                                                                         h >>
+             /\ UNCHANGED << tail, head, result, t >>
 
 casB(self) == /\ pc[self] = "casB"
               /\ IF tail = t[self]
-                    THEN /\ tail' = FINISH
+                    THEN /\ tail' = fin
                          /\ result' = [result EXCEPT ![self] = TRUE]
                     ELSE /\ result' = [result EXCEPT ![self] = FALSE]
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = <<>>, 
-                                   "Failure of assertion at line 319, column 33.")
+                                   "Failure of assertion at line 328, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in Range(disk), 
-                      "Failure of assertion at line 330, column 18.")
+                      "Failure of assertion at line 345, column 18.")
             /\ disk' = Remove(disk, t[self])
+            /\ history' = history \o << Op(self, "deq", t[self]) >>
             /\ pc' = [pc EXCEPT ![self] = "exp"]
-            /\ UNCHANGED << tail, head, history, result, t, h >>
+            /\ UNCHANGED << tail, head, result, t, h >>
 
 exp(self) == /\ pc[self] = "exp"
-             /\ history' = history \o << Op(self, "deq", t[self]) >>
-             /\ IF Len(history') > Pages
+             /\ IF TotalWork
                    THEN /\ pc' = [pc EXCEPT ![self] = "deq"]
-                   ELSE /\ \/ /\ pc' = [pc EXCEPT ![self] = "enq"]
-                           \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
-                           \/ /\ pc' = [pc EXCEPT ![self] = "casC"]
-             /\ UNCHANGED << tail, disk, head, result, t, h >>
-
-casC(self) == /\ pc[self] = "casC"
-              /\ IF tail = t[self]
-                    THEN /\ tail' = VIOLATION
-                         /\ result' = [result EXCEPT ![self] = TRUE]
-                    ELSE /\ result' = [result EXCEPT ![self] = FALSE]
-                         /\ tail' = tail
-              /\ IF result'[self]
-                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
-                    ELSE /\ pc' = [pc EXCEPT ![self] = "retry"]
-              /\ UNCHANGED << disk, head, history, t, h >>
-
-retry(self) == /\ pc[self] = "retry"
-               /\ t' = [t EXCEPT ![self] = tail]
-               /\ pc' = [pc EXCEPT ![self] = "casC"]
-               /\ UNCHANGED << tail, disk, head, history, result, h >>
+                   ELSE /\ pc' = [pc EXCEPT ![self] = "enq"]
+             /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
 enq(self) == /\ pc[self] = "enq"
-             /\ h' = [h EXCEPT ![self] = head]
-             /\ pc' = [pc EXCEPT ![self] = "enq2"]
-             /\ UNCHANGED << tail, disk, head, history, result, t >>
+             /\ IF h[self] = -1
+                   THEN /\ \/ /\ pc' = [pc EXCEPT ![self] = "violation"]
+                           \/ /\ pc' = [pc EXCEPT ![self] = "claim"]
+                   ELSE /\ IF h[self] # -1
+                              THEN /\ \/ /\ pc' = [pc EXCEPT ![self] = "violation"]
+                                      \/ /\ pc' = [pc EXCEPT ![self] = "wrt"]
+                                      \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
+                              ELSE /\ pc' = [pc EXCEPT ![self] = "claim"]
+             /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
-enq2(self) == /\ pc[self] = "enq2"
+claim(self) == /\ pc[self] = "claim"
+               /\ Assert(h[self] = -1, 
+                         "Failure of assertion at line 419, column 20.")
+               /\ pc' = [pc EXCEPT ![self] = "clm1"]
+               /\ UNCHANGED << tail, disk, head, history, result, t, h >>
+
+clm1(self) == /\ pc[self] = "clm1"
+              /\ h' = [h EXCEPT ![self] = head]
+              /\ pc' = [pc EXCEPT ![self] = "clm2"]
+              /\ UNCHANGED << tail, disk, head, history, result, t >>
+
+clm2(self) == /\ pc[self] = "clm2"
               /\ IF head = h[self]
                     THEN /\ head' = h[self] + 1
                          /\ result' = [result EXCEPT ![self] = TRUE]
@@ -566,20 +617,40 @@ enq2(self) == /\ pc[self] = "enq2"
                          /\ head' = head
               /\ IF result'[self]
                     THEN /\ h' = [h EXCEPT ![self] = h[self] + 1]
-                         /\ pc' = [pc EXCEPT ![self] = "wrt"]
-                    ELSE /\ pc' = [pc EXCEPT ![self] = "enq"]
+                         /\ \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
+                            \/ /\ pc' = [pc EXCEPT ![self] = "wrt"]
+                    ELSE /\ pc' = [pc EXCEPT ![self] = "clm1"]
                          /\ h' = h
               /\ UNCHANGED << tail, disk, history, t >>
 
 wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = disk \o << h[self] >>
              /\ history' = history \o << Op(self, "enq", h[self]) >>
-             /\ pc' = [pc EXCEPT ![self] = "deq"]
-             /\ UNCHANGED << tail, head, result, t, h >>
+             /\ h' = [h EXCEPT ![self] = -1]
+             /\ \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
+                \/ /\ pc' = [pc EXCEPT ![self] = "exp"]
+             /\ UNCHANGED << tail, head, result, t >>
+
+violation(self) == /\ pc[self] = "violation"
+                   /\ IF tail = t[self]
+                         THEN /\ tail' = vio
+                              /\ result' = [result EXCEPT ![self] = TRUE]
+                         ELSE /\ result' = [result EXCEPT ![self] = FALSE]
+                              /\ tail' = tail
+                   /\ IF result'[self]
+                         THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
+                         ELSE /\ pc' = [pc EXCEPT ![self] = "retry"]
+                   /\ UNCHANGED << disk, head, history, t, h >>
+
+retry(self) == /\ pc[self] = "retry"
+               /\ t' = [t EXCEPT ![self] = tail]
+               /\ pc' = [pc EXCEPT ![self] = "violation"]
+               /\ UNCHANGED << tail, disk, head, history, result, h >>
 
 worker(self) == deq(self) \/ casA(self) \/ wt(self) \/ wt1(self)
-                   \/ casB(self) \/ rd(self) \/ exp(self) \/ casC(self)
-                   \/ retry(self) \/ enq(self) \/ enq2(self) \/ wrt(self)
+                   \/ casB(self) \/ rd(self) \/ exp(self) \/ enq(self)
+                   \/ claim(self) \/ clm1(self) \/ clm2(self) \/ wrt(self)
+                   \/ violation(self) \/ retry(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
@@ -593,7 +664,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-fe4149026836a2f08d89aac45bffa308
+\* END TRANSLATION TLA-4962b344584eca61f925bbc762a1d6fc
 -----------------------------------------------------------------------------
 
 =============================================================================
