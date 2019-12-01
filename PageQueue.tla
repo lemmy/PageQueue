@@ -106,8 +106,8 @@ EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, Naturals
 \* order. 
 Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
 
-\* seq is assumed to be a sequence of sequences. Equals the sequence of
-\* elements where each element is the i-th element of the nested sequences.
+\* seq is assumed to be a sequence of functions. Equals a sequence where
+\* each element is the i-th element of the nested functions.
 Reduce(seq, i) == [ idx \in 1..Len(seq) |-> seq[idx][i] ]
 
 \* TODO: Separation into Finish and Violation not needed by the implementation.
