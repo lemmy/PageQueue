@@ -5,7 +5,7 @@ EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, Naturals
 (* The largest element in the given sequence assuming the elements *)
 (* have an order.                                                  *) 
 (*******************************************************************)
-Max(seq) == CHOOSE s \in Range(seq) : \A e \in Range(seq) : s >= e
+Max(S) == CHOOSE s \in S : \A e \in S : s >= e
 
 (*******************************************************************)
 (* seq is assumed to be a sequence of functions. Equals a sequence *)
@@ -27,12 +27,6 @@ CONSTANT Workers,
                               
 ASSUME /\ Workers # {}            (* At least one worker. *)
        /\ Pages \in (Nat \ {})    (* Nat^+                *) 
-
-(*******************************************************************)
-(* A set of strictly monotone increasing sequences (up to Pages),  *)
-(* i.e. {<<1>>, <<1,2>>, <<1,2,3>>, ...}                           *)
-(*******************************************************************)
-Disks == { [ n \in s |-> n ]  : s \in { (1..n) : n \in (1..Pages) } }
 
 -----------------------------------------------------------------------------
 
@@ -58,9 +52,9 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
          tail = 0;
          (*********************************************************************)
          (* The pages that have been written to disk during the generation of *)
-         (* the initial states.                                               *)
+         (* the initial states. disk \in  { {1}, {1,2}, {1,2,3}, ... }        *)
          (*********************************************************************)
-         disk \in Disks;
+         disk \in { (1..i) : i \in 1..Pages };
          (*********************************************************************)
          (* A strictly monotone increasing counter. Its value marks the last  *)
          (* page that has been enqueued.                                      *)
@@ -70,7 +64,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
          (* Auxiliary/History variable to check properties. Initialized to    *)
          (* match disk.                                                       *)
          (*********************************************************************)
-         history = [ i \in 1..Len(disk) |-> Op("init", "enq", i) ];
+         history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ];
        
        define {
            (*******************************************************************)
@@ -97,11 +91,10 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
                       (**********************************************************)
                    /\ IsInjective(Enqueued)
                    /\ IsInjective(Dequeued)
-                   /\ IsInjective(disk)
                    /\ (\A p \in Workers : pc[p] = "Done") => 
                        \/ tail = vio
                        \/ /\ tail = fin
-                          /\ disk = <<>>
+                          /\ disk = {}
                           (************************************************************)
                           (* Any enq'ed page has also been deq'ed.                    *)
                           (************************************************************)
@@ -177,7 +170,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
                  if (t = vio) {
                    goto Done;
                  } else if (t = fin) {
-                   assert disk = <<>>;
+                   assert disk = {};
                    goto Done;
 \*                 } else if (t = SUSPEND) {
 \*                     awtwtA: await AAAA;
@@ -209,11 +202,11 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
             (* other workers spin here too, the workers will eventually    *)
             (* terminate once one of the worker CASes "fin".               *)
             (***************************************************************)
-            wt: while (t \notin Range(disk)) {
+            wt: while (t \notin disk) {
             wt1:   if (tail = vio) {
                        goto Done;
                     } else if (tail = fin) {
-                       assert disk = <<>>;
+                       assert disk = {};
                        goto Done;
                     } else if (tail = Cardinality(Workers) + head) {
                        (*******************************************************)
@@ -232,7 +225,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
                        assert h = -1;
                        casB: CAS(result, tail, t, fin);
                              if (result) {
-                                assert disk = <<>>;
+                                assert disk = {};
                                 goto Done;
                              } else {
                                 (************************************************)
@@ -267,7 +260,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
                         (* before t_j. This is however a general property of this *)
                         (* queue, hence relaxed queue.                            *)
                         (**********************************************************)
-                        disk := disk \o << h >>;
+                        disk := disk \cup {h};
                         history := history \o << Op(self, "enq", h) >>;
                         h := -1;
                         goto wt;
@@ -279,8 +272,8 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
                         skip; \* Same as goto wt;
                     }
                  };
-            rd:  assert t \in Range(disk);
-                 disk := Remove(disk, t);
+            rd:  assert t \in disk;
+                 disk := disk \ {t};
                  history := history \o << Op(self, "deq", t) >>;
                  
             (*****************************************************************)
@@ -332,7 +325,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
             (* the page first (wrt) before enqueueing it (enq). However, *)
             (* enq determines the file-name of the page.                 *)
             (*************************************************************)
-            wrt: disk := disk \o << h >>;
+            wrt: disk := disk \cup {h};
                  history := history \o << Op(self, "enq", h) >>;
                  h := -1;
                  either { goto deq; } or { goto exp; };
