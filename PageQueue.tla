@@ -93,12 +93,17 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
            (* all work is either done or a violation has been found.           *)
            (********************************************************************)
            WSafety == 
-                      (**********************************************************)
-                      (* Neither the enqueued operations nor the dequeued pages *)
-                      (* ever contain duplicates.                               *)
-                      (**********************************************************)
+                   (**********************************************************)
+                   (* Neither the enqueued operations nor the dequeued pages *)
+                   (* ever contain duplicates.                               *)
+                   (**********************************************************)
                    /\ IsInjective(Enqueued)
                    /\ IsInjective(Dequeued)
+                   (*************************************************************)
+                   (* After termination a worker either found a violation (vio) *)
+                   (* or a worker signalied finish (fin) in which case all      *)
+                   (* scheduled work is done (disk = {}).                       *)
+                   (*************************************************************)
                    /\ (\A p \in Workers : pc[p] = "Done") => 
                        \/ tail = vio
                        \/ /\ tail = fin
@@ -168,12 +173,8 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
             variables result = FALSE, t = 0, h = -1; {
             
             (****************************************************************)
-            (* 1. Stage *)
+            (* 1. Stage: Dequeue an unexplored page iff one is available.   *)
             (****************************************************************)
-            
-            \* Read head and tail to check if work left.
-            \* Iff true CAS tail+1, else done. On successful
-            \* CAS return tail, else reread head and tail.
             deq: t := tail;
                  if (t = vio) {
                    goto Done;
@@ -357,7 +358,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-7f322e983c64a4aeab2ea6f33ace6909
+\* BEGIN TRANSLATION PCal-157ff891f81e487fd0ba07f2a348fcec
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -384,8 +385,17 @@ TypeOK ==
 
 
 WSafety ==
+
+
+
+
         /\ IsInjective(Enqueued)
         /\ IsInjective(Dequeued)
+
+
+
+
+
         /\ (\A p \in Workers : pc[p] = "Done") =>
             \/ tail = vio
             \/ /\ tail = fin
@@ -424,7 +434,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 177, column 20.")
+                                             "Failure of assertion at line 186, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -454,12 +464,12 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 213, column 24.")
+                                             "Failure of assertion at line 222, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF tail = Cardinality(Workers) + head
                                          THEN /\ Assert(h[self] = -1, 
-                                                        "Failure of assertion at line 229, column 24.")
+                                                        "Failure of assertion at line 238, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF h[self] # -1 /\ head <= Cardinality(Workers) + tail
@@ -482,14 +492,14 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 232, column 33.")
+                                   "Failure of assertion at line 241, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 279, column 18.")
+                      "Failure of assertion at line 288, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = history \o << Op(self, "deq", t[self]) >>
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -514,7 +524,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = -1, 
-                         "Failure of assertion at line 316, column 20.")
+                         "Failure of assertion at line 325, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
@@ -578,7 +588,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-2bc2e4b07b6df98fa7267033f5265006
+\* END TRANSLATION TLA-ecd9ac4ad238f42c08b16dbea4b33e6b
 -----------------------------------------------------------------------------
 
 =============================================================================
