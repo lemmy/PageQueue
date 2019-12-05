@@ -79,6 +79,14 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
            (*****************************************************************)
            TotalWork == Len(Enqueued) > Pages \/ Len(Dequeued) > Pages
        
+           (******************************)
+           (* Type correctness invariant *)
+           (******************************)
+           TypeOK == 
+                 /\ tail \in (Nat \cup {fin,vio})
+                 /\ head \in (Nat \ {0})
+                 /\ disk \subseteq (Nat \ {0})
+       
            (********************************************************************)
            (* Safety Property:                                                 *)
            (* There are never duplicates in history nor disk. Upon termination *)
@@ -349,7 +357,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-b076d7310a3eafbcc97329e5e1b8362f
+\* BEGIN TRANSLATION PCal-7f322e983c64a4aeab2ea6f33ace6909
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -365,16 +373,23 @@ TotalWork == Len(Enqueued) > Pages \/ Len(Dequeued) > Pages
 
 
 
+TypeOK ==
+      /\ tail \in (Nat \cup {fin,vio})
+      /\ head \in (Nat \ {0})
+      /\ disk \subseteq (Nat \ {0})
+
+
+
+
 
 
 WSafety ==
         /\ IsInjective(Enqueued)
         /\ IsInjective(Dequeued)
-        /\ IsInjective(disk)
         /\ (\A p \in Workers : pc[p] = "Done") =>
             \/ tail = vio
             \/ /\ tail = fin
-               /\ disk = <<>>
+               /\ disk = {}
 
 
 
@@ -394,9 +409,9 @@ ProcSet == (Workers)
 
 Init == (* Global variables *)
         /\ tail = 0
-        /\ disk \in Disks
+        /\ disk \in { (1..i) : i \in 1..Pages }
         /\ head = Max(disk)
-        /\ history = [ i \in 1..Len(disk) |-> Op("init", "enq", i) ]
+        /\ history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ]
         (* Process worker *)
         /\ result = [self \in Workers |-> FALSE]
         /\ t = [self \in Workers |-> 0]
@@ -408,8 +423,8 @@ deq(self) == /\ pc[self] = "deq"
              /\ IF t'[self] = vio
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
-                              THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 173, column 20.")
+                              THEN /\ Assert(disk = {}, 
+                                             "Failure of assertion at line 177, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -428,7 +443,7 @@ casA(self) == /\ pc[self] = "casA"
               /\ UNCHANGED << disk, head, history, h >>
 
 wt(self) == /\ pc[self] = "wt"
-            /\ IF t[self] \notin Range(disk)
+            /\ IF t[self] \notin disk
                   THEN /\ pc' = [pc EXCEPT ![self] = "wt1"]
                   ELSE /\ pc' = [pc EXCEPT ![self] = "rd"]
             /\ UNCHANGED << tail, disk, head, history, result, t, h >>
@@ -438,17 +453,17 @@ wt1(self) == /\ pc[self] = "wt1"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
-                              THEN /\ Assert(disk = <<>>, 
-                                             "Failure of assertion at line 206, column 24.")
+                              THEN /\ Assert(disk = {}, 
+                                             "Failure of assertion at line 213, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF tail = Cardinality(Workers) + head
                                          THEN /\ Assert(h[self] = -1, 
-                                                        "Failure of assertion at line 222, column 24.")
+                                                        "Failure of assertion at line 229, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF h[self] # -1 /\ head <= Cardinality(Workers) + tail
-                                                    THEN /\ disk' = disk \o << h[self] >>
+                                                    THEN /\ disk' = (disk \cup {h[self]})
                                                          /\ history' = history \o << Op(self, "enq", h[self]) >>
                                                          /\ h' = [h EXCEPT ![self] = -1]
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
@@ -466,16 +481,16 @@ casB(self) == /\ pc[self] = "casB"
                     ELSE /\ result' = [result EXCEPT ![self] = FALSE]
                          /\ tail' = tail
               /\ IF result'[self]
-                    THEN /\ Assert(disk = <<>>, 
-                                   "Failure of assertion at line 225, column 33.")
+                    THEN /\ Assert(disk = {}, 
+                                   "Failure of assertion at line 232, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
-            /\ Assert(t[self] \in Range(disk), 
-                      "Failure of assertion at line 272, column 18.")
-            /\ disk' = Remove(disk, t[self])
+            /\ Assert(t[self] \in disk, 
+                      "Failure of assertion at line 279, column 18.")
+            /\ disk' = disk \ {t[self]}
             /\ history' = history \o << Op(self, "deq", t[self]) >>
             /\ pc' = [pc EXCEPT ![self] = "exp"]
             /\ UNCHANGED << tail, head, result, t, h >>
@@ -499,7 +514,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = -1, 
-                         "Failure of assertion at line 310, column 20.")
+                         "Failure of assertion at line 316, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
@@ -523,7 +538,7 @@ clm2(self) == /\ pc[self] = "clm2"
               /\ UNCHANGED << tail, disk, history, t >>
 
 wrt(self) == /\ pc[self] = "wrt"
-             /\ disk' = disk \o << h[self] >>
+             /\ disk' = (disk \cup {h[self]})
              /\ history' = history \o << Op(self, "enq", h[self]) >>
              /\ h' = [h EXCEPT ![self] = -1]
              /\ \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
@@ -563,7 +578,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-8548dcdbf68abd7c0d6a671fda15798a
+\* END TRANSLATION TLA-2bc2e4b07b6df98fa7267033f5265006
 -----------------------------------------------------------------------------
 
 =============================================================================
