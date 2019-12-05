@@ -1,5 +1,10 @@
 ----------------------------- MODULE PageQueue -----------------------------
-EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, Naturals
+EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC
+
+(***********************************************)
+(* The set of naturals without zero: 1,2,3,... *)
+(***********************************************)
+NatP == Nat \ {0}
 
 (*******************************************************************)
 (* The largest element in the given sequence assuming the elements *)
@@ -26,7 +31,7 @@ CONSTANT Workers,
          Pages                
                               
 ASSUME /\ Workers # {}            (* At least one worker. *)
-       /\ Pages \in (Nat \ {})    (* Nat^+                *) 
+       /\ Pages \in NatP 
 
 -----------------------------------------------------------------------------
 
@@ -37,6 +42,7 @@ ASSUME /\ Workers # {}            (* At least one worker. *)
 (******************************************************************)
 fin == CHOOSE fin : fin \notin Nat
 vio == CHOOSE vio : vio \notin Nat \cup {fin}
+np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
 
 -----------------------------------------------------------------------------
 
@@ -54,7 +60,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
          (* The pages that have been written to disk during the generation of *)
          (* the initial states. disk \in  { {1}, {1,2}, {1,2,3}, ... }        *)
          (*********************************************************************)
-         disk \in { (1..i) : i \in 1..Pages };
+         disk \in { 1..i : i \in 1..Pages };
          (*********************************************************************)
          (* A strictly monotone increasing counter. Its value marks the last  *)
          (* page that has been enqueued.                                      *)
@@ -84,8 +90,10 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
            (******************************)
            TypeOK == 
                  /\ tail \in (Nat \cup {fin,vio})
-                 /\ head \in (Nat \ {0})
-                 /\ disk \subseteq (Nat \ {0})
+                 /\ head \in NatP
+                 /\ disk \subseteq NatP
+\*                 /\ t \in (Nat \cup {fin,vio})
+\*                 /\ h \in (NatP \cup {np})
        
            (********************************************************************)
            (* Safety Property:                                                 *)
@@ -170,7 +178,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
        (* signal from another worker.                                    *)
        (******************************************************************)
        fair process (worker \in Workers) 
-            variables result = FALSE, t = 0, h = -1; {
+            variables result = FALSE, t = 0, h = np; {
             
             (****************************************************************)
             (* 1. Stage: Dequeue an unexplored page iff one is available.   *)
@@ -231,7 +239,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
                        (*      Done). This optimization is more about elegance*)
                        (*      than about performance though.                 *)
                        (*******************************************************)
-                       assert h = -1;
+                       assert h = np;
                        casB: CAS(result, tail, t, fin);
                              if (result) {
                                 assert disk = {};
@@ -243,7 +251,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
                                 (************************************************)
                                 goto wt;
                              }
-                    } else if (h # -1 /\ head <= Cardinality(Workers) + tail) {
+                    } else if (h # np /\ head <= Cardinality(Workers) + tail) {
                         (**********************************************************)
                         (* A page transitions through the following states:       *)
                         (* New > Written > Claimed > Read > Deleted               *)
@@ -271,7 +279,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
                         (**********************************************************)
                         disk := disk \cup {h};
                         history := history \o << Op(self, "enq", h) >>;
-                        h := -1;
+                        h := np;
                         goto wt;
                     } else {
                         (***************************************************)
@@ -302,7 +310,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
            (****************************************************************)
            (* 3. Stage: Append successor states to an existing page        *)
            (* (h # -1) or create a new one.                                *)
-           (*                    h = -1 (new)        |  h # -1 (existing)  *)
+           (*                    h = np (new)        |  h # np (existing)  *)
            (*                  ----------------------|---------------      *)
            (*  violation:       CAS(fin),goto Done   | CAS(fin), goto Done *)
            (*  no succ:         (claim,) goto deq    | goto deq            *)
@@ -312,13 +320,13 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
            (*                                                              *)
            (*  ("goto enq" means we have to end up claiming a new page!!!) *)
            (****************************************************************)
-            enq: if (h = -1) {
+            enq: if (h = np) {
                       either { goto violation; } or { goto claim; };
-                 } else if (h # -1) {
+                 } else if (h # np) {
                       either { goto violation; } or { goto wrt; } or { goto deq; };
                  }; 
 
-            claim: assert h = -1;
+            claim: assert h = np;
                    clm1:  h := head;
                    clm2:  CAS(result, head, h, h + 1);
                           if (result) {
@@ -336,7 +344,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
             (*************************************************************)
             wrt: disk := disk \cup {h};
                  history := history \o << Op(self, "enq", h) >>;
-                 h := -1;
+                 h := np;
                  either { goto deq; } or { goto exp; };
                      
             \*-----------------------------------------------------------*\
@@ -358,7 +366,7 @@ vio == CHOOSE vio : vio \notin Nat \cup {fin}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-157ff891f81e487fd0ba07f2a348fcec
+\* BEGIN TRANSLATION PCal-a501d6bd2a28b52ed20cd28c4c35f655
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -376,8 +384,10 @@ TotalWork == Len(Enqueued) > Pages \/ Len(Dequeued) > Pages
 
 TypeOK ==
       /\ tail \in (Nat \cup {fin,vio})
-      /\ head \in (Nat \ {0})
-      /\ disk \subseteq (Nat \ {0})
+      /\ head \in NatP
+      /\ disk \subseteq NatP
+
+
 
 
 
@@ -419,13 +429,13 @@ ProcSet == (Workers)
 
 Init == (* Global variables *)
         /\ tail = 0
-        /\ disk \in { (1..i) : i \in 1..Pages }
+        /\ disk \in { 1..i : i \in 1..Pages }
         /\ head = Max(disk)
         /\ history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ]
         (* Process worker *)
         /\ result = [self \in Workers |-> FALSE]
         /\ t = [self \in Workers |-> 0]
-        /\ h = [self \in Workers |-> -1]
+        /\ h = [self \in Workers |-> np]
         /\ pc = [self \in ProcSet |-> "deq"]
 
 deq(self) == /\ pc[self] = "deq"
@@ -434,7 +444,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 186, column 20.")
+                                             "Failure of assertion at line 190, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -464,18 +474,18 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 222, column 24.")
+                                             "Failure of assertion at line 226, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF tail = Cardinality(Workers) + head
-                                         THEN /\ Assert(h[self] = -1, 
-                                                        "Failure of assertion at line 238, column 24.")
+                                         THEN /\ Assert(h[self] = np, 
+                                                        "Failure of assertion at line 242, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
-                                         ELSE /\ IF h[self] # -1 /\ head <= Cardinality(Workers) + tail
+                                         ELSE /\ IF h[self] # np /\ head <= Cardinality(Workers) + tail
                                                     THEN /\ disk' = (disk \cup {h[self]})
                                                          /\ history' = history \o << Op(self, "enq", h[self]) >>
-                                                         /\ h' = [h EXCEPT ![self] = -1]
+                                                         /\ h' = [h EXCEPT ![self] = np]
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                     ELSE /\ TRUE
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
@@ -492,14 +502,14 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 241, column 33.")
+                                   "Failure of assertion at line 245, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 288, column 18.")
+                      "Failure of assertion at line 292, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = history \o << Op(self, "deq", t[self]) >>
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -512,10 +522,10 @@ exp(self) == /\ pc[self] = "exp"
              /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
 enq(self) == /\ pc[self] = "enq"
-             /\ IF h[self] = -1
+             /\ IF h[self] = np
                    THEN /\ \/ /\ pc' = [pc EXCEPT ![self] = "violation"]
                            \/ /\ pc' = [pc EXCEPT ![self] = "claim"]
-                   ELSE /\ IF h[self] # -1
+                   ELSE /\ IF h[self] # np
                               THEN /\ \/ /\ pc' = [pc EXCEPT ![self] = "violation"]
                                       \/ /\ pc' = [pc EXCEPT ![self] = "wrt"]
                                       \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
@@ -523,8 +533,8 @@ enq(self) == /\ pc[self] = "enq"
              /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
 claim(self) == /\ pc[self] = "claim"
-               /\ Assert(h[self] = -1, 
-                         "Failure of assertion at line 325, column 20.")
+               /\ Assert(h[self] = np, 
+                         "Failure of assertion at line 329, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
@@ -550,7 +560,7 @@ clm2(self) == /\ pc[self] = "clm2"
 wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = (disk \cup {h[self]})
              /\ history' = history \o << Op(self, "enq", h[self]) >>
-             /\ h' = [h EXCEPT ![self] = -1]
+             /\ h' = [h EXCEPT ![self] = np]
              /\ \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
                 \/ /\ pc' = [pc EXCEPT ![self] = "exp"]
              /\ UNCHANGED << tail, head, result, t >>
@@ -588,7 +598,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-ecd9ac4ad238f42c08b16dbea4b33e6b
+\* END TRANSLATION TLA-af6347f1271dc5e58cfd01e9cd50e285
 -----------------------------------------------------------------------------
 
 =============================================================================
