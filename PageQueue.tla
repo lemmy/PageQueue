@@ -324,7 +324,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                       either { goto violation; } or { goto claim; };
                  } else if (h # np) {
                       either { goto violation; } or { goto wrt; } or { goto deq; };
-                 }; 
+                 };
 
             claim: assert h = np;
                    clm1:  h := head;
@@ -338,9 +338,9 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                           };
             
             (*************************************************************)
-            (* Write page to disk. Intuitively, one would write the      *)
-            (* the page first (wrt) before enqueueing it (enq). However, *)
-            (* enq determines the file-name of the page.                 *)
+            (* Write page to disk. Intuitively, one would write the page *)
+            (* first (wrt) before enqueueing it (enq). However, enq      *)
+            (* determines the identifier (e.g. file-name) of the page.   *)
             (*************************************************************)
             wrt: disk := disk \cup {h};
                  history := history \o << Op(self, "enq", h) >>;
