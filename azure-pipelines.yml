@@ -11,5 +11,5 @@ jobs:
     displayName: Get (nightly) TLC
   - script: wget https://github.com/tlaplus/CommunityModules/releases/download/20191120.2/CommunityModules-201911202143.jar
     displayName: Get TLA+ Community Modules
-  - script: java -Dtlc2.TLC.stopAfter=1800 -cp tla2tools.jar:CommunityModules-201911202143.jar tlc2.TLC -workers 2 -checkpoint 60 -coverage 60 -tool MC.tla
+  - script: java -Dtlc2.TLC.stopAfter=1800 -cp tla2tools.jar:CommunityModules-201911202143.jar tlc2.TLC -workers 2 -lncheck final -checkpoint 60 -coverage 60 -tool MC.tla
     displayName: Run TLC
