@@ -1,11 +1,12 @@
 ----------------------------- MODULE Schedules -----------------------------
-EXTENDS TLCExt
+EXTENDS TLC, TLCExt, PageQueue
 
-(**********************************************)
-(* Remember to add definitions overrides for: *)
-(* Disks <- {<<1,2,3>>}                       *)
-(* TotalWork <- FALSE                         *)
-(**********************************************)
+(*****************************************************************)
+(* Remember to add definitions overrides for:                    *)
+(* Limit initial states to disk = {1,2,3} with state constraint: *)
+(* IF TLCGet("level") = 1 THEN Cardinality(disk) = 3 ELSE TRUE   *)
+(* TotalWork <- FALSE                                            *)
+(*****************************************************************)
 
 \* ActionConstraint
 ScheduleA ==
@@ -30,7 +31,11 @@ ScheduleA ==
 \*      \/ wt1(w1) \/ wt(w1) \/ casB(w1)
       \/ IF l \in DOMAIN u THEN u[l]
          \* Any suffix is admissable when TRUE. To generate a trace when the
-         \* end of the prefix has been reached, use Assert(FALSE, "...").
+         \* end of the prefix has been reached, use Assert(FALSE, "..."). To
+         \* interactively select successor states at the end of the prefix,
+         \* use PickSuccessor(FALSE). Could also fine-tuned to
+         \* PickSuccessor(\A w \in ProcSet : pc[w]' # "Violation") or
+         \* PickSuccessor(WSafety')
          ELSE Assert(FALSE, "Reached suffix")
 
 =============================================================================

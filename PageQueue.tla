@@ -1,5 +1,5 @@
 ----------------------------- MODULE PageQueue -----------------------------
-EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC
+EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, TLCExt
 
 (***********************************************)
 (* The set of naturals without zero: 1,2,3,... *)
@@ -295,6 +295,8 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                  
             (*****************************************************************)
             (* 2. Stage:  Evaluate spec's next-state relation.               *)
+            (*                                                               *)
+            (* It's not worth to merge this state into enq to reduce states. *)
             (*                                                               *)
             (* Bound spec to a finite state space.  Using a state constraint *)
             (* such as Len(history) < Pages is more elegant but causes       *)
