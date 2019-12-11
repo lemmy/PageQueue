@@ -225,7 +225,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                     } else if (tail = fin) {
                        assert disk = {};
                        goto Done;
-                    } else if (tail = Cardinality(Workers) + head) {
+                    } else if (head = tail - Cardinality(Workers)) {
                        (*******************************************************)
                        (* This branch guarantees termination after all states *)
                        (* have been explored.                                 *)
@@ -251,7 +251,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                                 (************************************************)
                                 goto wt;
                              }
-                    } else if (h # np /\ head <= Cardinality(Workers) + tail) {
+                    } else if (h # np /\ head <= tail + Cardinality(Workers)) {
                         (**********************************************************)
                         (* A page transitions through the following states:       *)
                         (* New > Written > Claimed > Read > Deleted               *)
@@ -368,7 +368,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-a501d6bd2a28b52ed20cd28c4c35f655
+\* BEGIN TRANSLATION PCal-b402fc68fc7e22adddd2cfebcfaf4e7a
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -479,12 +479,12 @@ wt1(self) == /\ pc[self] = "wt1"
                                              "Failure of assertion at line 226, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
-                              ELSE /\ IF tail = Cardinality(Workers) + head
+                              ELSE /\ IF head = tail - Cardinality(Workers)
                                          THEN /\ Assert(h[self] = np, 
                                                         "Failure of assertion at line 242, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
-                                         ELSE /\ IF h[self] # np /\ head <= Cardinality(Workers) + tail
+                                         ELSE /\ IF h[self] # np /\ head <= tail + Cardinality(Workers)
                                                     THEN /\ disk' = (disk \cup {h[self]})
                                                          /\ history' = history \o << Op(self, "enq", h[self]) >>
                                                          /\ h' = [h EXCEPT ![self] = np]
@@ -536,7 +536,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 329, column 20.")
+                         "Failure of assertion at line 331, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
@@ -600,7 +600,8 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-af6347f1271dc5e58cfd01e9cd50e285
+\* END TRANSLATION TLA-9b0c788466f7da07bf891fca7a1a6fd8
 -----------------------------------------------------------------------------
+
 
 =============================================================================
