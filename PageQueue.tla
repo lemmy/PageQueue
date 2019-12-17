@@ -251,7 +251,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                                 (************************************************)
                                 goto wt;
                              }
-                    } else if (h # np /\ head <= tail + Cardinality(Workers)) {
+                    } else if (h # np /\ head <= tail) {
                         (**********************************************************)
                         (* A page transitions through the following states:       *)
                         (* New > Written > Claimed > Read > Deleted               *)
@@ -368,7 +368,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-b402fc68fc7e22adddd2cfebcfaf4e7a
+\* BEGIN TRANSLATION PCal-1230f66c93497b1a9d145cd9cbbbf4a1
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -484,7 +484,7 @@ wt1(self) == /\ pc[self] = "wt1"
                                                         "Failure of assertion at line 242, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
-                                         ELSE /\ IF h[self] # np /\ head <= tail + Cardinality(Workers)
+                                         ELSE /\ IF h[self] # np /\ head <= tail
                                                     THEN /\ disk' = (disk \cup {h[self]})
                                                          /\ history' = history \o << Op(self, "enq", h[self]) >>
                                                          /\ h' = [h EXCEPT ![self] = np]
@@ -600,7 +600,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-9b0c788466f7da07bf891fca7a1a6fd8
+\* END TRANSLATION TLA-1e0baba5d2444c87e7417d93f428cbef
 -----------------------------------------------------------------------------
 
 
