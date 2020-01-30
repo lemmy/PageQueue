@@ -140,6 +140,11 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
            }
        }
 
+
+\*  If suspension is picked up again, the following branch contains the prototype of a
+\*  PCal 'action' keyword:
+\*  https://github.com/lemmy/tlaplus/tree/mku-pcal-action-keyword
+\*  https://github.com/lemmy/PageQueue/commit/07d2ea57a19baf003b18868f2669cf05fddec0d2
 \*       fair process (ProcName = "main") 
 \*            variables tmp = -1; {
 \*            
