@@ -1,0 +1,4842 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass acmart
+\begin_preamble
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+%% Embed TLA+ and PlusCal in document
+\usepackage{tlatex}
+\usepackage{color}
+\definecolor{boxshade}{gray}{0.90}
+\setboolean{shading}{true}
+
+%% Pretty print TLA+
+\newcommand{\tlaplus}{TLA$^{+}$}
+\end_preamble
+\use_default_options true
+\begin_modules
+knitr
+\end_modules
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize 10
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine natbib
+\cite_engine_type authoryear
+\biblio_style plainnat
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section*
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Section*
+WIP
+\end_layout
+
+\begin_layout Subsection*
+Spec
+\end_layout
+
+\begin_layout Itemize
+Livelock of 1 to N workers s.t.
+ each worker holds a (local) page that another worker is assigned to/spinning
+ for?
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Why not exhibited by spec?
+\end_layout
+
+\begin_layout Itemize
+=> For Worker = {w1}, action wt1 takes care of enqueuing the local page
+\end_layout
+
+\begin_layout Itemize
+It is actually not a livelock and thus not a liveness violation coz wt1
+ makes sure that the workers release their pages eventually (once head <=
+ tail).
+ In practice however, a subset of Workers can get stuck for a very long
+ time (until shortly before the end of model checking) before wt1 can kick
+ in and resolve the lock.
+\end_layout
+
+\begin_layout Itemize
+Starvation|fast-path & slow-path|conflict resolution strategy/policy
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+PageQueue drop-in replacement for StateQueue
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Handle suspension in PageQueue (liveness checking requires suspension, not
+ just checkpointing)
+\end_layout
+
+\begin_layout Itemize
+PageQueue#size at runtime and after termination
+\end_layout
+
+\end_deeper
+\begin_layout Subsection*
+Performance
+\end_layout
+
+\begin_layout Itemize
+Why is single threaded TLC with state queue faster than with page queue?
+\end_layout
+
+\begin_layout Subsection*
+Scalability
+\end_layout
+
+\begin_layout Itemize
+Isolated PageQueue scalability
+\end_layout
+
+\begin_layout Itemize
+How to select values for PageSize and InMemoryPages
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Simple PID controller
+\end_layout
+
+\begin_layout Itemize
+Fancy reinforcement learning?
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Contention of RL?
+\end_layout
+
+\begin_layout Itemize
+=> Just one worker learns?
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Itemize
+Partition in-memory hash-map by deriving key from head or tail values
+\end_layout
+
+\begin_layout Subsection*
+Various
+\end_layout
+
+\begin_layout Itemize
+PageQueue on Windows (non-POSIX) broken?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+\begin_inset CommandInset href
+LatexCommand href
+name "Concurrent Chaining Hash Maps for Software Model Checking"
+target "http://theory.stanford.edu/~barrett/fmcad/papers/FMCAD2019_paper_27.pdf"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset CommandInset href
+LatexCommand href
+name "Efficient Lock-Free Durable Sets"
+target "https://arxiv.org/abs/1909.02852"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Author
+Markus Alexander Kuppe
+\end_layout
+
+\begin_layout Email
+makuppe@microsoft.com
+\end_layout
+
+\begin_layout Keywords
+concurrent data structures, lock freedom, parallel algorithms, correctness,
+ model checking, specification
+\end_layout
+
+\begin_layout Title
+PageQueue: Scalable, lock-free relaxed fifo with two atomic counters
+\end_layout
+
+\begin_layout Date
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+today
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Itemize
+High-level TLA+ 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Lamport1994"
+literal "false"
+
+\end_inset
+
+ and the explicit-state model checker TLC
+\end_layout
+
+\begin_layout Itemize
+Engineers check designs by verifying properties on 
+\begin_inset Quotes eld
+\end_inset
+
+sufficiently large
+\begin_inset Quotes erd
+\end_inset
+
+ finite models of their specifications
+\end_layout
+
+\begin_layout Itemize
+A model checker is especially useful because - contrary to theorem provers
+ - provides counterexamples to properties
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Model checkers find different variants of the same error.
+ For better comprehension, engineers want the shortest counterexample that
+ leads to an error
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Engineers are primarily interested in checking safety properties
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+TLC checks safety properties with breadth-first search (liveness checking
+ is Tarjan SCC)
+\end_layout
+
+\begin_layout Itemize
+TLC BFS on-the-fly state graph generation
+\end_layout
+
+\begin_layout Itemize
+Technically a seen set to keep (fingerprints) of explored states and a queue
+ of unexplored states
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Kuppe2017a"
+literal "false"
+
+\end_inset
+
+ contribution is a scalable seen set
+\end_layout
+
+\begin_layout Itemize
+Profiling of TLC identified queue of unexplored states (StateQueue) as scalabili
+ty bottleneck (figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:ContentionBaselineTLC"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Itemize
+Our Approach
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Requirements/Design-Goals/Observations
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+During model checking gradually (based on a given function) relax strict
+ fifo ordering to scale TLC's safety checking to 100+ cores
+\end_layout
+
+\begin_layout Itemize
+Relaxing fifo ordering is acceptable, because we assume that:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Finding a good approximation of the shortest counterexample will generally
+ suffice.
+\end_layout
+
+\begin_layout Itemize
+Deviating from the shortest counterexample becomes gradually more acceptable
+ with an increasing diameter of the state graph.
+ That is, users care if a counterexample has length five when the shortest
+ one has length one.
+ However, a counterexample of length 42 is as useful as a counterexample
+ of length 39.
+\end_layout
+
+\begin_layout Itemize
+Maximally relaxing fifo ordering to speed up model checking is desirable
+ when engineering judgment says that a specification satisfies its (safety)
+ properties.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+We assume that IO performance, memory capacity and bandwidth, as well as
+ the number of cores increase proportionally.
+ In other words, we expect the average hardware that executes to be a homogeneou
+s mix of hard-disks, memory, and cores.
+\end_layout
+
+\end_deeper
+\begin_layout Section
+Overview PageQueue
+\end_layout
+
+\begin_layout Itemize
+Fundamental ideas (TLA+ spec follows the informal description):
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Sets of states (page) with variable sizes (page sizes) are enqueued and
+ dequeued in the PageQueue
+\end_layout
+
+\begin_layout Itemize
+Each page has a unique id
+\end_layout
+
+\begin_layout Itemize
+A page's id is determined as part of the enqueue operation
+\end_layout
+
+\begin_layout Itemize
+Enqueue operation:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+enq atomically increments (CAS) the head counter (page is empty at this
+ point)
+\end_layout
+
+\begin_layout Itemize
+Once a page is full, a worker writes it to disk
+\end_layout
+
+\begin_layout Itemize
+When the write completes, the disk file is atomically renamed to the page
+ id (POSIX)
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Dequeue operation:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+deq atomically increments the tail counter (claim a page)
+\end_layout
+
+\begin_layout Itemize
+Worker spins until it can read the page from disk
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+A priori chosen function, whose input is the current head, determines page
+ size
+\end_layout
+
+\begin_layout Itemize
+=> E.g.
+ gradually increase page size over time (this is how fifo ordering is relaxed)
+\end_layout
+
+\begin_layout Itemize
+Termination iff 
+\begin_inset Formula $tail+numberofWorkes\geqq head$
+\end_inset
+
+ (or a counterexample is found)
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset CommandInset line
+LatexCommand rule
+offset "0.5ex"
+width "100col%"
+height "1pt"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{ppcal}
+\end_layout
+
+\begin_layout Plain Layout
+
+EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, TLCExt
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+(***********************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+(* The set of naturals without zero: 1,2,3,...
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+(***********************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+NatP == Nat 
+\backslash
+ {0}
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+(*******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+(* The largest element in the given sequence assuming the elements *)
+\end_layout
+
+\begin_layout Plain Layout
+
+(* have an order.
+                                                  *) 
+\end_layout
+
+\begin_layout Plain Layout
+
+(*******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+Max(S) == CHOOSE s 
+\backslash
+in S : 
+\backslash
+A e 
+\backslash
+in S : s >= e
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+(*******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+(* seq is assumed to be a sequence of functions.
+ Equals a sequence *)
+\end_layout
+
+\begin_layout Plain Layout
+
+(* where each element is the i-th element of the nested functions.
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+(*******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+Reduce(seq, i) == [ idx 
+\backslash
+in 1..Len(seq) |-> seq[idx][i] ]
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+(*******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+(* A record representing a logical queue operation                 *)
+\end_layout
+
+\begin_layout Plain Layout
+
+(*******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+-----------------------------------------------------------------------------
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+CONSTANT Workers,
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* Maximum number of pages to write *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* unless a violation is detected.
+  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         Pages                
+\end_layout
+
+\begin_layout Plain Layout
+
+                              
+\end_layout
+
+\begin_layout Plain Layout
+
+ASSUME /
+\backslash
+ Workers # {}            (* At least one worker.
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+       /
+\backslash
+ Pages 
+\backslash
+in NatP 
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+-----------------------------------------------------------------------------
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+(******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+(* Hint: Separation into Finish and Violation not needed by the   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+(* implementation.
+ The implementation just returns null.
+ Instead, *)
+\end_layout
+
+\begin_layout Plain Layout
+
+(* only the spec uses it to be able to state stronger invariants.
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+(******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+fin == CHOOSE fin : fin 
+\backslash
+notin Nat
+\end_layout
+
+\begin_layout Plain Layout
+
+vio == CHOOSE vio : vio 
+\backslash
+notin Nat 
+\backslash
+cup {fin}
+\end_layout
+
+\begin_layout Plain Layout
+
+np  == CHOOSE np  : np  
+\backslash
+notin Nat 
+\backslash
+cup {fin,vio}
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+--algorithm PageQueue {
+\end_layout
+
+\begin_layout Plain Layout
+
+       variables 
+\end_layout
+
+\begin_layout Plain Layout
+
+         (*********************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* A strictly monotone increasing counter.
+ Its value marks the       *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* last page that has been enqueued.
+  Iff its value is negativ,      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* it serves as a signal for consumers/workers (compare fin and
+      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* vio).
+ Initially, no page has been dequeued.
+                       *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (*********************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+         tail = 0;
+\end_layout
+
+\begin_layout Plain Layout
+
+         (*********************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* The pages that have been written to disk during the generation
+ of *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* the initial states.
+ disk 
+\backslash
+in  { {1}, {1,2}, {1,2,3}, ...
+ }        *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (*********************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+         disk 
+\backslash
+in { 1..i : i 
+\backslash
+in 1..Pages };
+\end_layout
+
+\begin_layout Plain Layout
+
+         (*********************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* A strictly monotone increasing counter.
+ Its value marks the last  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* page that has been enqueued.
+                                      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (*********************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+         head = Max(disk);
+\end_layout
+
+\begin_layout Plain Layout
+
+         (*********************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* Auxiliary/History variable to check properties.
+ Initialized to    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (* match disk.
+                                                       *)
+\end_layout
+
+\begin_layout Plain Layout
+
+         (*********************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+         history = [ i 
+\backslash
+in 1..Cardinality(disk) |-> Op("init", "enq", i) ];
+\end_layout
+
+\begin_layout Plain Layout
+
+       
+\end_layout
+
+\begin_layout Plain Layout
+
+       define {
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (* The sequence of enqueued pages and dequeued pages respectively.
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+           Enqueued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"),
+ "page")
+\end_layout
+
+\begin_layout Plain Layout
+
+           Dequeued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"),
+ "page")
+\end_layout
+
+\begin_layout Plain Layout
+
+       
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*****************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (* Make state space explicitly finite (see enq) instead of  
+     *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (* with a state constraint that interfers with liveness checking.*)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*****************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+           TotalWork == Len(Enqueued) > Pages 
+\backslash
+/ Len(Dequeued) > Pages
+\end_layout
+
+\begin_layout Plain Layout
+
+       
+\end_layout
+
+\begin_layout Plain Layout
+
+           (******************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (* Type correctness invariant *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (******************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+           TypeOK == 
+\end_layout
+
+\begin_layout Plain Layout
+
+                 /
+\backslash
+ tail 
+\backslash
+in (Nat 
+\backslash
+cup {fin,vio})
+\end_layout
+
+\begin_layout Plain Layout
+
+                 /
+\backslash
+ head 
+\backslash
+in NatP
+\end_layout
+
+\begin_layout Plain Layout
+
+                 /
+\backslash
+ disk 
+\backslash
+subseteq NatP
+\end_layout
+
+\begin_layout Plain Layout
+
+       
+\end_layout
+
+\begin_layout Plain Layout
+
+           (********************************************************************
+)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (* Safety Property:                                         
+        *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (* There are never duplicates in history nor disk.
+ Upon termination *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (* all work is either done or a violation has been found.
+           *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (********************************************************************
+)
+\end_layout
+
+\begin_layout Plain Layout
+
+           WSafety == 
+\end_layout
+
+\begin_layout Plain Layout
+
+                   (**********************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   (* Neither the enqueued operations nor the dequeued pages
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   (* ever contain duplicates.
+                               *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   (**********************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   /
+\backslash
+ IsInjective(Enqueued)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   /
+\backslash
+ IsInjective(Dequeued)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   (************************************************************
+*)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   (* After termination a worker either found a violation
+ (vio) *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   (* or a worker signalied finish (fin) in which case all
+      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   (* scheduled work is done (disk = {}).
+                       *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   (************************************************************
+*)
+\end_layout
+
+\begin_layout Plain Layout
+
+                   /
+\backslash
+ (
+\backslash
+A p 
+\backslash
+in Workers : pc[p] = "Done") => 
+\end_layout
+
+\begin_layout Plain Layout
+
+                       
+\backslash
+/ tail = vio
+\end_layout
+
+\begin_layout Plain Layout
+
+                       
+\backslash
+/ /
+\backslash
+ tail = fin
+\end_layout
+
+\begin_layout Plain Layout
+
+                          /
+\backslash
+ disk = {}
+\end_layout
+
+\begin_layout Plain Layout
+
+                          (*****************************************************
+*******)
+\end_layout
+
+\begin_layout Plain Layout
+
+                          (* Any enq'ed page has also been deq'ed.
+                    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                          (*****************************************************
+*******)
+\end_layout
+
+\begin_layout Plain Layout
+
+                          /
+\backslash
+ Range(Enqueued) = Range(Dequeued)
+\end_layout
+
+\begin_layout Plain Layout
+
+                          (*****************************************************
+*******)
+\end_layout
+
+\begin_layout Plain Layout
+
+                          (* Due to the way how we made the state space
+ of the spec   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                          (* finite, admissible behaviors can create more
+ pages.
+ I'm  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                          (* too lazy to find the actual bound.
+                       *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                          (*****************************************************
+*******)
+\end_layout
+
+\begin_layout Plain Layout
+
+                          /
+\backslash
+ 1..Pages 
+\backslash
+subseteq Range(Reduce(history, "page"))
+\end_layout
+
+\begin_layout Plain Layout
+
+       }
+\end_layout
+
+\begin_layout Plain Layout
+
+       
+\end_layout
+
+\begin_layout Plain Layout
+
+       (*******************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+       (* Atomicity is implicit due to the absence of labels.
+ *)      
+\end_layout
+
+\begin_layout Plain Layout
+
+       (*******************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+       macro CAS(result, var, expected, new) {
+\end_layout
+
+\begin_layout Plain Layout
+
+           if (var = expected) {
+\end_layout
+
+\begin_layout Plain Layout
+
+               var := new;
+\end_layout
+
+\begin_layout Plain Layout
+
+               result := TRUE
+\end_layout
+
+\begin_layout Plain Layout
+
+           } else { 
+\end_layout
+
+\begin_layout Plain Layout
+
+               result := FALSE
+\end_layout
+
+\begin_layout Plain Layout
+
+           }
+\end_layout
+
+\begin_layout Plain Layout
+
+       }
+\end_layout
+
+\begin_layout Plain Layout
+
+       
+\end_layout
+
+\begin_layout Plain Layout
+
+       (******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+       (* A worker process has the following high-level stages:        
+  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+       (* 1) deq to rd:  Dequeue a page iff one is available.
+            *)
+\end_layout
+
+\begin_layout Plain Layout
+
+       (* 2) exp:        Evaluate the next-state relation.
+               *)
+\end_layout
+
+\begin_layout Plain Layout
+
+       (* 3) enq to wrt: Enqueue a newly generate page.
+                  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+       (* In the first state a worker will check for a "fin" or "vio"  
+  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+       (* signal from another worker.
+                                    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+       (******************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+       fair process (worker 
+\backslash
+in Workers) 
+\end_layout
+
+\begin_layout Plain Layout
+
+            variables result = FALSE, t = 0, h = np; {
+\end_layout
+
+\begin_layout Plain Layout
+
+            
+\end_layout
+
+\begin_layout Plain Layout
+
+            (****************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* 1.
+ Stage: Dequeue an unexplored page iff one is available.
+   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (****************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            deq: t := tail;
+\end_layout
+
+\begin_layout Plain Layout
+
+                 if (t = vio) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                   goto Done;
+\end_layout
+
+\begin_layout Plain Layout
+
+                 } else if (t = fin) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                   assert disk = {};
+\end_layout
+
+\begin_layout Plain Layout
+
+                   goto Done;
+\end_layout
+
+\begin_layout Plain Layout
+
+                 } else {
+\end_layout
+
+\begin_layout Plain Layout
+
+                   casA: CAS(result, tail, t, t + 1);
+\end_layout
+
+\begin_layout Plain Layout
+
+                         if (result) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (***************************************************
+***)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (* Set (local) t to value CASed iff CAS successful.
+   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (* Translates to Java's AtomicInteger.incrementAndGet
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (***************************************************
+***)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            t := t + 1;
+\end_layout
+
+\begin_layout Plain Layout
+
+                            goto wt;
+\end_layout
+
+\begin_layout Plain Layout
+
+                         } else {
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (***********************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (* CAS can fail for two reasons:   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (*  a) Another worker dequeued the *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (*     page (normal case).
+         *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (*  b) Model checking finished     *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (*  In both cases return to deq.
+   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            (***********************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                            goto deq;
+\end_layout
+
+\begin_layout Plain Layout
+
+                         };
+\end_layout
+
+\begin_layout Plain Layout
+
+                 };
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+            (***************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* Spin until a page is available and can be read.
+ In case all *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* other workers spin here too, the workers will eventually
+    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* terminate once one of the worker CASes "fin".
+               *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (***************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            wt: while (t 
+\backslash
+notin disk) {
+\end_layout
+
+\begin_layout Plain Layout
+
+            wt1:   if (tail = vio) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                       goto Done;
+\end_layout
+
+\begin_layout Plain Layout
+
+                    } else if (tail = fin) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                       assert disk = {};
+\end_layout
+
+\begin_layout Plain Layout
+
+                       goto Done;
+\end_layout
+
+\begin_layout Plain Layout
+
+                    } else if (head = tail - Cardinality(Workers)) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*******************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (* This branch guarantees termination after all states
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (* have been explored.
+                                 *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*******************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*******************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (* The current worker (self) detected the termination
+  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (* condition and signals "fin" to the other workers.
+   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*******************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*******************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*TODO: LazySet is good enough because an       
+       *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*      unsuccessful CAS means another worker CAS'ed
+   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*      fin before us (in which case we can go to
+      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*      Done).
+ This optimization is more about elegance*)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*      than about performance though.
+                 *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       (*******************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                       assert h = np;
+\end_layout
+
+\begin_layout Plain Layout
+
+                       casB: CAS(result, tail, t, fin);
+\end_layout
+
+\begin_layout Plain Layout
+
+                             if (result) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                                assert disk = {};
+\end_layout
+
+\begin_layout Plain Layout
+
+                                goto Done;
+\end_layout
+
+\begin_layout Plain Layout
+
+                             } else {
+\end_layout
+
+\begin_layout Plain Layout
+
+                                (***********************************************
+*)
+\end_layout
+
+\begin_layout Plain Layout
+
+                                (* Failed to signal termination because
+ another *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                                (* worker signaled termination first.
+           *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                                (***********************************************
+*)
+\end_layout
+
+\begin_layout Plain Layout
+
+                                goto wt;
+\end_layout
+
+\begin_layout Plain Layout
+
+                             }
+\end_layout
+
+\begin_layout Plain Layout
+
+                    } else if (h # np /
+\backslash
+ head <= tail) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (*******************************************************
+***)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* A page transitions through the following states:
+       *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* New > Written > Claimed > Read > Deleted    
+           *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* The interesting transition is from New to Written.
+     *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* The existance of a new page is known to the set
+ of     *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* workers because head has been increased.
+  However,     *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* no worker can claim this page until it is written
+      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* to storage (e.g.
+ the file-system).
+ A new page gets     *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* written when it is full, unless it cannot be
+ filled    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* completely because workers run out of unexplored
+       *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* states to generate successor states.
+ This is where     *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* a worker writes an underfull page to storage
+ (disk).
+   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (*******************************************************
+***)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (*******************************************************
+***)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* This branch prevents premature termination before
+ all  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* states have been explored.
+ Why is it guaranteed that   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* worker i, that holds a new page, arrives here
+ before   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* another worker observes tail = head + Car(W)
+ above?    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* For Car(W) = 1, it is easy to see that the (only)
+      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* worker first arrives here.
+                             *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (*******************************************************
+***)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (*******************************************************
+***)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* Approximates FIFO ordering because worker i whose
+ t i  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* is greater than t j of worker j may consume page
+ t i   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* before t j.
+ This is however a general property of this *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* queue, hence relaxed queue.
+                            *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (*******************************************************
+***)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        disk := disk 
+\backslash
+cup {h};
+\end_layout
+
+\begin_layout Plain Layout
+
+                        history := history 
+\backslash
+o << Op(self, "enq", h) >>;
+\end_layout
+
+\begin_layout Plain Layout
+
+                        h := np;
+\end_layout
+
+\begin_layout Plain Layout
+
+                        goto wt;
+\end_layout
+
+\begin_layout Plain Layout
+
+                    } else {
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (***************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* Page not yet readable (the producer of the page
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (* has not yet written the page to disk).
+          *) 
+\end_layout
+
+\begin_layout Plain Layout
+
+                        (***************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+                        skip; 
+\backslash
+* Same as goto wt;
+\end_layout
+
+\begin_layout Plain Layout
+
+                    }
+\end_layout
+
+\begin_layout Plain Layout
+
+                 };
+\end_layout
+
+\begin_layout Plain Layout
+
+            rd:  assert t 
+\backslash
+in disk;
+\end_layout
+
+\begin_layout Plain Layout
+
+                 disk := disk 
+\backslash
+ {t};
+\end_layout
+
+\begin_layout Plain Layout
+
+                 history := history 
+\backslash
+o << Op(self, "deq", t) >>;
+\end_layout
+
+\begin_layout Plain Layout
+
+                 
+\end_layout
+
+\begin_layout Plain Layout
+
+            (*****************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* 2.
+ Stage:  Evaluate spec's next-state relation.
+               *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (*                                                         
+      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* It's not worth to merge this state into enq to reduce states.
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (*                                                         
+      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* Bound spec to a finite state space.
+  Using a state constraint *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* such as Len(history) < Pages is more elegant but causes 
+      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* trouble when checking liveness because the property can be
+    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* vacuously true (see Specifying Systems section 13.4.5).
+       *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (*****************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            exp: if (TotalWork) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                     goto deq;
+\end_layout
+
+\begin_layout Plain Layout
+
+                 } else {
+\end_layout
+
+\begin_layout Plain Layout
+
+                     goto enq;
+\end_layout
+
+\begin_layout Plain Layout
+
+                 };
+\end_layout
+
+\begin_layout Plain Layout
+
+            
+\end_layout
+
+\begin_layout Plain Layout
+
+           (****************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (* 3.
+ Stage: Append successor states to an existing page        *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (* h 
+\backslash
+=  -1 or create a new one.
+                                *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*                    h = np (new)        |  h 
+\backslash
+= np (existing) *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*                  ----------------------|---------------  
+    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*  violation:       CAS(fin),goto Done   | CAS(fin), goto Done
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*  no succ:         (claim,) goto deq    | goto deq        
+    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*  fits into page:  claim, goto deq      | goto deq        
+    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*  exactly fits p:  claim, wrt, goto deq | wrt, godo deq   
+    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*  exceeds page:    claim, wrt, goto enq | wrt, goto enq   
+    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*                                                          
+    *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (*  ("goto enq" means we have to end up claiming a new page!!!)
+ *)
+\end_layout
+
+\begin_layout Plain Layout
+
+           (****************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            enq: if (h = np) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                      either { goto violation; } or { goto claim; };
+\end_layout
+
+\begin_layout Plain Layout
+
+                 } else if (h # np) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                      either { goto violation; } or { goto wrt; } or { goto
+ deq; };
+\end_layout
+
+\begin_layout Plain Layout
+
+                 };
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+            claim: assert h = np;
+\end_layout
+
+\begin_layout Plain Layout
+
+                   clm1:  h := head;
+\end_layout
+
+\begin_layout Plain Layout
+
+                   clm2:  CAS(result, head, h, h + 1);
+\end_layout
+
+\begin_layout Plain Layout
+
+                          if (result) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                             h := h + 1;
+\end_layout
+
+\begin_layout Plain Layout
+
+                             either { goto deq; } 
+\end_layout
+
+\begin_layout Plain Layout
+
+                                 or { goto wrt; };
+\end_layout
+
+\begin_layout Plain Layout
+
+                          } else {
+\end_layout
+
+\begin_layout Plain Layout
+
+                              goto clm1;
+\end_layout
+
+\begin_layout Plain Layout
+
+                          };
+\end_layout
+
+\begin_layout Plain Layout
+
+            
+\end_layout
+
+\begin_layout Plain Layout
+
+            (*************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* Write page to disk.
+ Intuitively, one would write the page *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* first (wrt) before enqueueing it (enq).
+ However, enq      *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* determines the identifier (e.g.
+ file-name) of the page.
+   *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (*************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            wrt: disk := disk 
+\backslash
+cup {h};
+\end_layout
+
+\begin_layout Plain Layout
+
+                 history := history 
+\backslash
+o << Op(self, "enq", h) >>;
+\end_layout
+
+\begin_layout Plain Layout
+
+                 h := np;
+\end_layout
+
+\begin_layout Plain Layout
+
+                 either { goto deq; } or { goto exp; };
+\end_layout
+
+\begin_layout Plain Layout
+
+                     
+\end_layout
+
+\begin_layout Plain Layout
+
+            
+\backslash
+*-----------------------------------------------------------*
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+            
+\end_layout
+
+\begin_layout Plain Layout
+
+            (*************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (* Violation Stage                                         
+  *)
+\end_layout
+
+\begin_layout Plain Layout
+
+            (*************************************************************)
+\end_layout
+
+\begin_layout Plain Layout
+
+            violation: CAS(result, tail, t, vio);
+\end_layout
+
+\begin_layout Plain Layout
+
+                       if (result) {
+\end_layout
+
+\begin_layout Plain Layout
+
+                             goto Done;
+\end_layout
+
+\begin_layout Plain Layout
+
+                       } else {
+\end_layout
+
+\begin_layout Plain Layout
+
+                             retry: t := tail;
+\end_layout
+
+\begin_layout Plain Layout
+
+                             goto violation;
+\end_layout
+
+\begin_layout Plain Layout
+
+                       };           
+\end_layout
+
+\begin_layout Plain Layout
+
+       }
+\end_layout
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+* TLA+ translation omitted.
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{ppcal}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset line
+LatexCommand rule
+offset "0.5ex"
+width "100col%"
+height "1pt"
+
+\end_inset
+
+
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Subsection
+Intuition
+\end_layout
+
+\begin_layout Enumerate
+Legacy code constraints possible design!!!
+\end_layout
+
+\begin_layout Enumerate
+Two atomic counters (AtomicLong), Atomic file renames
+\end_layout
+
+\begin_layout Enumerate
+Discuss operations: dequeue, read, claim, enqueue
+\end_layout
+
+\begin_layout Subsection
+Functionality/Optimizations
+\end_layout
+
+\begin_layout Subsubsection
+Non-deterministic page size vs.
+ deterministic page size
+\end_layout
+
+\begin_layout Itemize
+Prototype impl.
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+@
+\end_layout
+
+\end_inset
+
+ promising scalability but revealed that a page's size should be independent
+ of predecessor page
+\end_layout
+
+\begin_layout Itemize
+Size of new pages can be changed dynamically
+\end_layout
+
+\begin_layout Itemize
+Relaxed FIFO non-ordering correlates with page size
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Larger pages lead to less FIFO
+\end_layout
+
+\end_deeper
+\begin_layout Subsubsection
+Storage decoupled from queue
+\end_layout
+
+\begin_layout Itemize
+Page storage independent of queue
+\end_layout
+
+\begin_layout Itemize
+Queue may use different storage simultaneously
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Worker will pre-process a page before it goes to storage
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Auxiliary Functionality: Suspension
+\end_layout
+
+\begin_layout Itemize
+Third party may request to suspend operations
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Not on the hot path (Phaser)
+\end_layout
+
+\end_deeper
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Correctness
+\end_layout
+
+\begin_layout Itemize
+Safety property WSafety and Termination (see above) model checked for up
+ to five workers and ten pages.
+\end_layout
+
+\begin_layout Subsection
+Implementation Correctness
+\end_layout
+
+\begin_layout Standard
+This is likely beyond this paper.
+\end_layout
+
+\begin_layout Section
+Evaluation
+\end_layout
+
+\begin_layout Standard
+We implemented PageQueue as a drop-in replacement for the existing StateQueue
+ implementation.
+ This enabled us to study the scalability of PageQueue by model checking
+ real-world specifications instead of creating artificial workloads that
+ are basic enqueue and dequeue operations at the queue level.
+ This also mandates that we run minutes-long macro-benchmarks.
+ Therefore, we do not consider imprecision in time measurements to have
+ an effect on our results.
+ To mitigate random effects in the benchmarks however, runtimes are averaged
+ over multiple benchmark runs.
+ 
+\end_layout
+
+\begin_layout Standard
+We performed experiments on 
+\begin_inset CommandInset href
+LatexCommand href
+name "Microsoft Azure Standard_M128m"
+target "https://docs.microsoft.com/en-us/azure/virtual-machines/m-series"
+literal "false"
+
+\end_inset
+
+ instances with 128 virtual cores backed by Intel(R) Xeon(R) CPU E7-8890
+ v3 @ 2.50GHz CPUs
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+https://github.com/MicrosoftDocs/azure-docs/blob/master/articles/virtual-machines
+/windows/compute-benchmark-scores.md
+\end_layout
+
+\end_inset
+
+ and 3892 GB RAM, running an up-to-date Ubuntu Server 18.04 LTS.
+ The Linux kernel version was Linux 5.3.0-1020-azure.
+ No performance optimizations were applied at the OS level.
+ The Java VM on which TLC executed was version 14.28+21 of the Zulu OpenJDK
+ build.
+ Profiling information was captured by Java's flight recording (JFR) 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Oracle2016"
+literal "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Conclusive scalability experiments at the TLC level are more challenging
+ to achieve, as we have to make sure that other components of TLC do not
+ become scalability bottlenecks.
+ To minimize those effects, we configured TLC to run with a scalable fingerprint
+ set 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Kuppe2017a"
+literal "false"
+
+\end_inset
+
+ and assigned it 512 GB of memory.
+ This configuration guaranteed, that TLC does not swap out the fingerprint
+ set during benchmarks and that hashtable collisions are low.
+\end_layout
+
+\begin_layout Standard
+We selected a TLA+ specification of the Bakery algorithm 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Lamport1974"
+literal "false"
+
+\end_inset
+
+ as input for the benchmarks for two reasons: First, this spec is a good
+ representative for the kind of problems that are commonly modeled with
+ TLA+.
+ Second, specifications of the Bakery algorithm are frequently used by other
+ model checkers to study performance and scalability.
+ The Spin benchmark below checks the 
+\noun on
+Promela
+\noun default
+ specification from 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Kobayashi2008"
+literal "true"
+
+\end_inset
+
+ with the number of processes 
+\begin_inset Formula $N$
+\end_inset
+
+ in the spec fixed to five.
+ The version of Spin was 6.4.6.
+ Note that Spin's BFS implementation does not scale past 64 cores.
+ Contrary to real-world use of TLC though, we ignore the safety property
+ of the Bakery spec to focus on the scalability of TLC's on-the-fly state
+ graph generation.
+ Skipping invariant checking, however, increases the burden on scalability.
+ The finite model of the spec bounds the number of processes 
+\begin_inset Formula $N$
+\end_inset
+
+ to four.
+\end_layout
+
+\begin_layout Standard
+In order to quantitatively discuss scalability 
+\begin_inset Formula $Z$
+\end_inset
+
+, we rely on the formal definition in 
+\begin_inset CommandInset citation
+LatexCommand citealp
+key "Gunther2007"
+literal "false"
+
+\end_inset
+
+:
+\begin_inset Formula 
+\begin{equation}
+Z\left(W\right)=\frac{W}{1+\varsigma\left(W-1\right)+\kappa W\left(W-1\right)}\label{eq:Scalability}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The three terms in the denominator of 
+\begin_inset CommandInset ref
+LatexCommand formatted
+reference "eq:Scalability"
+
+\end_inset
+
+ represent concurrency, contention, and coherence, respectively:
+\end_layout
+
+\begin_layout Description
+Concurrency The first term represents optimal concurrency.
+ It is independent of 
+\begin_inset Formula $W$
+\end_inset
+
+– the number of processes (not to be confused with the model parameter 
+\begin_inset Formula $N$
+\end_inset
+
+ above).
+ An embarrassingly parallel problem exhibits neither coherence nor contention,
+ and thus scales linearly.
+\end_layout
+
+\begin_layout Description
+Contention
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Formula $\left(\varsigma\right)$
+\end_inset
+
+ The factor 
+\begin_inset Formula $\varsigma$
+\end_inset
+
+ in the second term quantifies the inherent serial portion of the problem.
+ An increase in 
+\begin_inset Formula $\varsigma$
+\end_inset
+
+ leads to a decrease in speedup 
+\begin_inset Formula $Z$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Description
+Coherence
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Formula $\left(\kappa\right)$
+\end_inset
+
+ The 
+\begin_inset Formula $\kappa$
+\end_inset
+
+ factor quantifies coherence; the overhead induced by maintaining a consistent
+ system state.
+ Consistency requires agreement among 
+\begin_inset Formula $W$
+\end_inset
+
+ processes, which is why coherence is quadratic in 
+\begin_inset Formula $W$
+\end_inset
+
+.
+ Coherence quantifies the overhead created by crosstalk between cores to
+ maintain a consistent state of an atomic counter.
+\end_layout
+
+\begin_layout Subsection
+Baseline Comparison
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status collapsed
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename m128/ContentionWorkerStateQueue.png
+	scale 25
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:ContentionBaselineTLC"
+
+\end_inset
+
+Contention TLC worker (legacy) StateQuue.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename m128/Screenshot from 2020-05-03 17-56-54.png
+	scale 24.5
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:ContentionWorkerPageQueue"
+
+\end_inset
+
+Contention TLC worker PageQueue.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Comparison TLC worker contention measured with JFR.
+ (red indicates a blocked worker while green indicates an active one).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+The comparison of the contention - captured during one of the benchmarks
+ - confirms that the PageQueue algorithm does not exhibit worker contention.
+ However, this is a weak statement, since a lock-free algorithm such as
+ PageQueue uses busy waiting.
+ In other words, workers might spin in the algorithm's CAS section/operation
+ excessively.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Flex Chunk
+status collapsed
+
+\begin_layout Plain Layout
+
+\begin_inset Argument 1
+status collapsed
+
+\begin_layout Plain Layout
+
+scalability-spin-tlc, echo=FALSE, results="markup", warning=FALSE, out.width="100
+%"
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+
+df.tlcalloptimizations <- read.table(sep=",",header=T,text="Processes,Insertions,D
+uration
+\end_layout
+
+\begin_layout Plain Layout
+
+001,16829238,347801
+\end_layout
+
+\begin_layout Plain Layout
+
+001,16932641,347856
+\end_layout
+
+\begin_layout Plain Layout
+
+001,16999061,348809
+\end_layout
+
+\begin_layout Plain Layout
+
+002,28949853,326710
+\end_layout
+
+\begin_layout Plain Layout
+
+002,29286390,327151
+\end_layout
+
+\begin_layout Plain Layout
+
+002,29546092,327142
+\end_layout
+
+\begin_layout Plain Layout
+
+004,54779393,315667
+\end_layout
+
+\begin_layout Plain Layout
+
+004,55089500,315608
+\end_layout
+
+\begin_layout Plain Layout
+
+004,56124551,315572
+\end_layout
+
+\begin_layout Plain Layout
+
+008,103786367,315744
+\end_layout
+
+\begin_layout Plain Layout
+
+008,104831801,317732
+\end_layout
+
+\begin_layout Plain Layout
+
+008,105230253,310132
+\end_layout
+
+\begin_layout Plain Layout
+
+016,186978203,310151
+\end_layout
+
+\begin_layout Plain Layout
+
+016,189367721,309145
+\end_layout
+
+\begin_layout Plain Layout
+
+016,189496684,309878
+\end_layout
+
+\begin_layout Plain Layout
+
+032,318662056,306904
+\end_layout
+
+\begin_layout Plain Layout
+
+032,318721013,307026
+\end_layout
+
+\begin_layout Plain Layout
+
+032,319062989,306683
+\end_layout
+
+\begin_layout Plain Layout
+
+036,339988260,306740
+\end_layout
+
+\begin_layout Plain Layout
+
+036,341689431,307156
+\end_layout
+
+\begin_layout Plain Layout
+
+036,344031888,308834
+\end_layout
+
+\begin_layout Plain Layout
+
+040,367975049,307051
+\end_layout
+
+\begin_layout Plain Layout
+
+040,371968391,306454
+\end_layout
+
+\begin_layout Plain Layout
+
+040,372481517,307009
+\end_layout
+
+\begin_layout Plain Layout
+
+044,385237792,307802
+\end_layout
+
+\begin_layout Plain Layout
+
+044,385456251,308827
+\end_layout
+
+\begin_layout Plain Layout
+
+044,385571244,308085
+\end_layout
+
+\begin_layout Plain Layout
+
+048,405069197,308095
+\end_layout
+
+\begin_layout Plain Layout
+
+048,407805304,307307
+\end_layout
+
+\begin_layout Plain Layout
+
+048,408504501,308453
+\end_layout
+
+\begin_layout Plain Layout
+
+052,417412046,308355
+\end_layout
+
+\begin_layout Plain Layout
+
+052,421294399,306393
+\end_layout
+
+\begin_layout Plain Layout
+
+052,424453319,306225
+\end_layout
+
+\begin_layout Plain Layout
+
+056,426312144,306088
+\end_layout
+
+\begin_layout Plain Layout
+
+056,433847787,307791
+\end_layout
+
+\begin_layout Plain Layout
+
+056,437632280,308680
+\end_layout
+
+\begin_layout Plain Layout
+
+064,439626761,308655
+\end_layout
+
+\begin_layout Plain Layout
+
+064,449726465,307739
+\end_layout
+
+\begin_layout Plain Layout
+
+064,454572127,305994
+\end_layout
+
+\begin_layout Plain Layout
+
+068,451718860,307800
+\end_layout
+
+\begin_layout Plain Layout
+
+068,457202383,307679
+\end_layout
+
+\begin_layout Plain Layout
+
+068,461337962,307821
+\end_layout
+
+\begin_layout Plain Layout
+
+072,461463039,306524
+\end_layout
+
+\begin_layout Plain Layout
+
+072,462611339,307845
+\end_layout
+
+\begin_layout Plain Layout
+
+072,466064491,307777
+\end_layout
+
+\begin_layout Plain Layout
+
+076,468030789,306983
+\end_layout
+
+\begin_layout Plain Layout
+
+076,471317309,307374
+\end_layout
+
+\begin_layout Plain Layout
+
+076,471558402,308052
+\end_layout
+
+\begin_layout Plain Layout
+
+080,469801406,307383
+\end_layout
+
+\begin_layout Plain Layout
+
+080,476208463,307321
+\end_layout
+
+\begin_layout Plain Layout
+
+080,485672475,309634
+\end_layout
+
+\begin_layout Plain Layout
+
+084,466583941,308016
+\end_layout
+
+\begin_layout Plain Layout
+
+084,484048324,307195
+\end_layout
+
+\begin_layout Plain Layout
+
+084,493540080,308424
+\end_layout
+
+\begin_layout Plain Layout
+
+088,476228644,309191
+\end_layout
+
+\begin_layout Plain Layout
+
+088,497972285,308068
+\end_layout
+
+\begin_layout Plain Layout
+
+088,498539639,310547
+\end_layout
+
+\begin_layout Plain Layout
+
+092,482172452,310164
+\end_layout
+
+\begin_layout Plain Layout
+
+092,489072761,311464
+\end_layout
+
+\begin_layout Plain Layout
+
+092,489509457,311017
+\end_layout
+
+\begin_layout Plain Layout
+
+096,495187945,309657
+\end_layout
+
+\begin_layout Plain Layout
+
+096,503553813,313194
+\end_layout
+
+\begin_layout Plain Layout
+
+096,508942897,308313
+\end_layout
+
+\begin_layout Plain Layout
+
+100,489617593,309835
+\end_layout
+
+\begin_layout Plain Layout
+
+100,498458784,308730
+\end_layout
+
+\begin_layout Plain Layout
+
+100,516166279,308880
+\end_layout
+
+\begin_layout Plain Layout
+
+104,496648122,308396
+\end_layout
+
+\begin_layout Plain Layout
+
+104,514045209,308306
+\end_layout
+
+\begin_layout Plain Layout
+
+104,516552884,308343
+\end_layout
+
+\begin_layout Plain Layout
+
+108,513452000,308566
+\end_layout
+
+\begin_layout Plain Layout
+
+108,514104015,308636
+\end_layout
+
+\begin_layout Plain Layout
+
+108,514271505,308900
+\end_layout
+
+\begin_layout Plain Layout
+
+112,513788893,310125
+\end_layout
+
+\begin_layout Plain Layout
+
+112,515895027,309702
+\end_layout
+
+\begin_layout Plain Layout
+
+112,523327260,308525
+\end_layout
+
+\begin_layout Plain Layout
+
+116,511384935,309132
+\end_layout
+
+\begin_layout Plain Layout
+
+116,517666594,308398
+\end_layout
+
+\begin_layout Plain Layout
+
+116,527299149,308939
+\end_layout
+
+\begin_layout Plain Layout
+
+120,520749437,308823
+\end_layout
+
+\begin_layout Plain Layout
+
+120,521903419,309547
+\end_layout
+
+\begin_layout Plain Layout
+
+120,533912801,309325
+\end_layout
+
+\begin_layout Plain Layout
+
+124,522136578,310132
+\end_layout
+
+\begin_layout Plain Layout
+
+124,533699889,308920
+\end_layout
+
+\begin_layout Plain Layout
+
+124,534326695,309140
+\end_layout
+
+\begin_layout Plain Layout
+
+128,313742990,189281
+\end_layout
+
+\begin_layout Plain Layout
+
+128,316981461,188860
+\end_layout
+
+\begin_layout Plain Layout
+
+128,329229915,189466
+\end_layout
+
+\begin_layout Plain Layout
+
+128,522130690,308979
+\end_layout
+
+\begin_layout Plain Layout
+
+128,537978082,309479
+\end_layout
+
+\begin_layout Plain Layout
+
+128,541873078,308985")
+\end_layout
+
+\begin_layout Plain Layout
+
+df.tlcalloptimizations$Throughput <- df.tlcalloptimizations$Insertions / df.tlcallo
+ptimizations$Duration
+\end_layout
+
+\begin_layout Plain Layout
+
+df.tlcalloptimizations$Speedup<-df.tlcalloptimizations$Throughput/df.tlcalloptimiza
+tions$Throughput[1]
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+df.spin <- read.table(sep=",",header=T,text="Processes,Insertions,Duration
+\end_layout
+
+\begin_layout Plain Layout
+
+001,2.1644912e+09,5.87e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+001,2.1644912e+09,5.99e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+001,2.1644912e+09,5.99e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+002,2.1644912e+09,3.77e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+002,2.1644912e+09,3.84e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+002,2.1644912e+09,4.17e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+004,2.1644912e+09,2.27e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+004,2.1644912e+09,2.28e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+004,2.1644912e+09,2.29e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+008,2.1644912e+09,1.21e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+008,2.1644912e+09,1.2e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+008,2.1644912e+09,1.2e+03
+\end_layout
+
+\begin_layout Plain Layout
+
+016,2.1644912e+09,632
+\end_layout
+
+\begin_layout Plain Layout
+
+016,2.1644912e+09,633
+\end_layout
+
+\begin_layout Plain Layout
+
+016,2.1644912e+09,638
+\end_layout
+
+\begin_layout Plain Layout
+
+032,2.1644912e+09,355
+\end_layout
+
+\begin_layout Plain Layout
+
+032,2.1644912e+09,356
+\end_layout
+
+\begin_layout Plain Layout
+
+032,2.1644912e+09,358
+\end_layout
+
+\begin_layout Plain Layout
+
+040,2.1644912e+09,304
+\end_layout
+
+\begin_layout Plain Layout
+
+040,2.1644912e+09,305
+\end_layout
+
+\begin_layout Plain Layout
+
+048,2.1644912e+09,266
+\end_layout
+
+\begin_layout Plain Layout
+
+048,2.1644912e+09,266
+\end_layout
+
+\begin_layout Plain Layout
+
+048,2.1644912e+09,271
+\end_layout
+
+\begin_layout Plain Layout
+
+056,2.1644912e+09,269
+\end_layout
+
+\begin_layout Plain Layout
+
+056,2.1644912e+09,271
+\end_layout
+
+\begin_layout Plain Layout
+
+063,2.1644912e+09,269
+\end_layout
+
+\begin_layout Plain Layout
+
+063,2.1644912e+09,280
+\end_layout
+
+\begin_layout Plain Layout
+
+063,2.1644912e+09,283
+\end_layout
+
+\begin_layout Plain Layout
+
+")
+\end_layout
+
+\begin_layout Plain Layout
+
+					
+\end_layout
+
+\begin_layout Plain Layout
+
+## average (mean) grouping by Processes
+\end_layout
+
+\begin_layout Plain Layout
+
+#df.tlcalloptimizations <- aggregate(Throughput ~ Processes, data=df.tlcalloptimiz
+ations, FUN=function(x) c(M=mean(x))) 
+\end_layout
+
+\begin_layout Plain Layout
+
+#df.spin <- subset(df.tlcalloptimizations, Implementation == "SPIN")
+\end_layout
+
+\begin_layout Plain Layout
+
+#df.tlcalloptimizations <- subset(df.tlcalloptimizations, Implementation ==
+ "TLC")
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+# Calculate speedup over serial run.
+\end_layout
+
+\begin_layout Plain Layout
+
+df.spin$Throughput <- df.spin$Insertions / df.spin$Duration
+\end_layout
+
+\begin_layout Plain Layout
+
+df.spin$Speedup<-round(df.spin$Throughput/df.spin$Throughput[1],0)
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+df.tlc170 <- read.table(sep=",",header=T,text="Processes,Insertions,Duration
+\end_layout
+
+\begin_layout Plain Layout
+
+001,20507966,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+001,20541936,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+001,21272452,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+002,34815457,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+002,35141867,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+002,35882752,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+008,107209783,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+016,120905805,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+024,122985959,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+032,121470317,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+036,119344435,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+036,119365337,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+036,121003601,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+040,119911219,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+040,120978986,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+040,121053831,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+044,116981500,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+044,117757263,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+044,119936100,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+048,118794136,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+048,119171284,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+048,122191110,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+052,118493756,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+052,118826365,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+052,119753958,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+056,116555558,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+056,118181847,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+056,121656393,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+060,115518579,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+060,118234833,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+060,119269283,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+072,115294570,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+072,115689362,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+072,118515486,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+080,116329246,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+080,118111876,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+080,118463034,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+088,116862577,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+096,120255285,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+104,120305646,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+112,115022935,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+120,113609832,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+128,116386767,300000
+\end_layout
+
+\begin_layout Plain Layout
+
+\begin_inset Quotes eld
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Plain Layout
+
+df.tlc170$Throughput <- df.tlc170$Insertions / df.tlc170$Duration
+\end_layout
+
+\begin_layout Plain Layout
+
+df.tlc170$Speedup<-df.tlc170$Throughput/df.tlc170$Throughput[1]
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+df.tlcPageQueue <- read.table(sep=",",header=T,text="Processes,Insertions,Duration
+\end_layout
+
+\begin_layout Plain Layout
+
+001,13749544,300603
+\end_layout
+
+\begin_layout Plain Layout
+
+001,13867144,300655
+\end_layout
+
+\begin_layout Plain Layout
+
+002,30016582,300841
+\end_layout
+
+\begin_layout Plain Layout
+
+002,30668199,300877
+\end_layout
+
+\begin_layout Plain Layout
+
+004,59135031,301155
+\end_layout
+
+\begin_layout Plain Layout
+
+004,60246865,301162
+\end_layout
+
+\begin_layout Plain Layout
+
+008,115048370,301686
+\end_layout
+
+\begin_layout Plain Layout
+
+008,117191384,301683
+\end_layout
+
+\begin_layout Plain Layout
+
+016,211134688,302448
+\end_layout
+
+\begin_layout Plain Layout
+
+016,213775110,302437
+\end_layout
+
+\begin_layout Plain Layout
+
+024,291243534,303049
+\end_layout
+
+\begin_layout Plain Layout
+
+024,303569993,303166
+\end_layout
+
+\begin_layout Plain Layout
+
+032,356084720,303619
+\end_layout
+
+\begin_layout Plain Layout
+
+032,357745931,303579
+\end_layout
+
+\begin_layout Plain Layout
+
+040,409424828,303962
+\end_layout
+
+\begin_layout Plain Layout
+
+040,411942632,304013
+\end_layout
+
+\begin_layout Plain Layout
+
+048,439404425,304207
+\end_layout
+
+\begin_layout Plain Layout
+
+048,439480526,304270
+\end_layout
+
+\begin_layout Plain Layout
+
+060,461975375,304354
+\end_layout
+
+\begin_layout Plain Layout
+
+060,465028621,304412
+\end_layout
+
+\begin_layout Plain Layout
+
+072,465661982,304400
+\end_layout
+
+\begin_layout Plain Layout
+
+072,473388286,304525
+\end_layout
+
+\begin_layout Plain Layout
+
+080,477209069,304504
+\end_layout
+
+\begin_layout Plain Layout
+
+080,487625682,304559
+\end_layout
+
+\begin_layout Plain Layout
+
+088,477754248,304537
+\end_layout
+
+\begin_layout Plain Layout
+
+088,480767043,304574
+\end_layout
+
+\begin_layout Plain Layout
+
+096,475043477,304540
+\end_layout
+
+\begin_layout Plain Layout
+
+096,501549085,304713
+\end_layout
+
+\begin_layout Plain Layout
+
+104,484451438,304597
+\end_layout
+
+\begin_layout Plain Layout
+
+104,510163888,304783
+\end_layout
+
+\begin_layout Plain Layout
+
+112,502049058,304776
+\end_layout
+
+\begin_layout Plain Layout
+
+112,509182223,304975
+\end_layout
+
+\begin_layout Plain Layout
+
+120,527789452,304886
+\end_layout
+
+\begin_layout Plain Layout
+
+120,528815696,304987
+\end_layout
+
+\begin_layout Plain Layout
+
+128,542925753,305071
+\end_layout
+
+\begin_layout Plain Layout
+
+128,554002941,305191
+\end_layout
+
+\begin_layout Plain Layout
+
+\begin_inset Quotes eld
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Plain Layout
+
+df.tlcPageQueue$Throughput <- df.tlcPageQueue$Insertions / df.tlcPageQueue$Duration
+\end_layout
+
+\begin_layout Plain Layout
+
+df.tlcPageQueue$Speedup<-df.tlcPageQueue$Throughput/df.tlcPageQueue$Throughput[1]
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+library(methods)
+\end_layout
+
+\begin_layout Plain Layout
+
+library(usl)
+\end_layout
+
+\begin_layout Plain Layout
+
+usl.modeltlcalloptimizations <- usl(Speedup ~ Processes, df.tlcalloptimizations,
+ method = "nlxb")
+\end_layout
+
+\begin_layout Plain Layout
+
+usl.modelspin <- usl(Speedup ~ Processes, df.spin, method = "nlxb")
+\end_layout
+
+\begin_layout Plain Layout
+
+usl.modeltlc170 <- usl(Speedup ~ Processes, df.tlc170, method = "nlxb")
+\end_layout
+
+\begin_layout Plain Layout
+
+usl.modeltlcPageQueue <- usl(Speedup ~ Processes, df.tlcPageQueue, method
+ = "nlxb")
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+cat("Peak Scalability TLC PageQueue at ", round(peak.scalability(usl.modeltlcPageQ
+ueue),digits=0), 
+\begin_inset Quotes eld
+\end_inset
+
+ cores
+\backslash
+n
+\begin_inset Quotes erd
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Plain Layout
+
+cat("Peak Scalability TLC StateQueue at ", round(peak.scalability(usl.modeltlc170)
+,digits=0), 
+\begin_inset Quotes eld
+\end_inset
+
+ cores
+\backslash
+n
+\begin_inset Quotes erd
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Plain Layout
+
+#print(coef(usl.modeltlcalloptimizations))
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+Processes<-with(df.tlcalloptimizations,expand.grid(Processes=seq(min(Processes),ma
+x(Processes))))
+\end_layout
+
+\begin_layout Plain Layout
+
+fit2<-predict(usl.modeltlcalloptimizations, newdata=Processes, interval="confiden
+ce", level=0.95)
+\end_layout
+
+\begin_layout Plain Layout
+
+usl.polygon2<-matrix(c(Processes[,1],rev(Processes[,1]), fit2[,'lwr'],rev(fit2[,'
+upr'])), nrow =2*nrow(Processes))
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+plot(Speedup ~ Processes, data=df.tlcPageQueue, ylab="Speedup Z", xlab="Number
+ of Workers W", xlim=c(0,150), type="n") 
+\end_layout
+
+\begin_layout Plain Layout
+
+points(df.tlcPageQueue$Processes, df.tlcPageQueue$Speedup, col="black", pch
+ = 13)
+\end_layout
+
+\begin_layout Plain Layout
+
+plot(usl.modeltlcPageQueue, bounds=T, lty=4, ylab ="Speedup Z", xlab="Number
+ of Workers", add=TRUE)
+\end_layout
+
+\begin_layout Plain Layout
+
+cache.scale <- scalability (usl.modeltlcPageQueue)
+\end_layout
+
+\begin_layout Plain Layout
+
+curve(cache.scale, lty=2, col="black", from=0, add=TRUE)
+\end_layout
+
+\begin_layout Plain Layout
+
+grid()
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+plot(usl.modeltlcalloptimizations, bounds=FALSE, lty=1, col="black", ylab
+ ="Speedup Z", xlab="Number of Workers W", add=TRUE)
+\end_layout
+
+\begin_layout Plain Layout
+
+#points(df.tlcalloptimizations$Processes, df.tlcalloptimizations$Speedup,
+ col="blue", pch = 16)
+\end_layout
+
+\begin_layout Plain Layout
+
+cache.scale <- scalability (usl.modeltlcalloptimizations)
+\end_layout
+
+\begin_layout Plain Layout
+
+curve(cache.scale, lty=2, col="blue", from=0, add=TRUE)
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+plot(usl.modelspin, bounds=FALSE, lty=5, col="red", ylab ="Speedup Z", xlab="Numb
+er of Workers", add=TRUE)
+\end_layout
+
+\begin_layout Plain Layout
+
+#points(df.spin$Processes, df.spin$Speedup, col="red", pch = 14)
+\end_layout
+
+\begin_layout Plain Layout
+
+cache.scale <- scalability (usl.modelspin)
+\end_layout
+
+\begin_layout Plain Layout
+
+curve(cache.scale, lty=2, col="red", from=0, add=TRUE)
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+plot(usl.modeltlc170, bounds=FALSE, lty=6, col="green", ylab ="Speedup Z",
+ xlab="Number of Workers", add=TRUE)
+\end_layout
+
+\begin_layout Plain Layout
+
+points(df.tlc170$Processes, df.tlc170$Speedup, col="green", pch = 15)
+\end_layout
+
+\begin_layout Plain Layout
+
+cache.scale <- scalability (usl.modeltlc170)
+\end_layout
+
+\begin_layout Plain Layout
+
+curve(cache.scale, lty=2, col="green", from=0, add=TRUE)
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+legend("topleft", c(
+\begin_inset Quotes eld
+\end_inset
+
+TLC PageQueue
+\begin_inset Quotes erd
+\end_inset
+
+, 
+\begin_inset Quotes erd
+\end_inset
+
+TLC StateQueue
+\begin_inset Quotes erd
+\end_inset
+
+, "TLC Sets","Spin"), horiz=F, lty=c(1,4,5,6), lwd=c(2,2,2,2), col=c("black",
+\begin_inset Quotes eld
+\end_inset
+
+green","blue
+\begin_inset Quotes erd
+\end_inset
+
+,
+\begin_inset Quotes erd
+\end_inset
+
+red
+\begin_inset Quotes erd
+\end_inset
+
+))
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+#abline(v = peak.scalability(usl.modeltlcalloptimizations),lty="dotted")
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+abline(v = peak.scalability(usl.modeltlcPageQueue),lty="dotted")
+\end_layout
+
+\begin_layout Plain Layout
+
+abline(v = 128,lty="dashed")
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+#title('Dataset: 2017-02-21_x32, 2017-02-22_x32, 2020-05-04_m128, 2020-05-05_m12
+8')
+\end_layout
+
+\end_inset
+
+
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Speedup-of-all"
+
+\end_inset
+
+Speedup of all variants of TLC (SPIN model checker in comparison).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+Therefore, we plot the speedup 
+\begin_inset Formula $Z$
+\end_inset
+
+ of TLC running with its default StateQueue vs.
+ TLC running with PageQueue (
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Speedup-of-all"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ As references, the plot also shows scalability of Spin and a variant of
+ TLC (
+\begin_inset Quotes eld
+\end_inset
+
+TLC Sets
+\begin_inset Quotes erd
+\end_inset
+
+) with a one-to-one mapping of queues to workers.
+ The vertical, dashed line indicates 128 cores – the instance's core count.
+ The dotted line shows the predicted peak scalability at $(see value above
+ the plot) cores.
+\end_layout
+
+\begin_layout Itemize
+TLC Sets indicates that contention and/or coherence other than that of the
+ PageQueue limits TLC's scalability.
+ One working hypothesis is that the garbage collector of the Java VM creates
+ a bottleneck (TLC's interpreter is known to create a lot of garbage).
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+TODO: Run benchmarks at the (isolated) PageQueue level to demonstrate that
+ it's not the bottleneck here.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Additionally, see 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Kuppe2017a"
+literal "false"
+
+\end_inset
+
+ for a discussion of how hyper-threading distorts scalability measurements.
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+TODO: Rerun benchmarks with a 256 core instance (they are expensive)?
+\end_layout
+
+\end_deeper
+\begin_layout Subsection
+Comparison with Apalache
+\end_layout
+
+\begin_layout Standard
+In addition to the evaluation above, we also compared TLC with StateQueue
+ and PageQueue to an SMT-based model checker for TLA+ 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Konnov2019a"
+literal "false"
+
+\end_inset
+
+.
+ We are in the process of confirming our experiment setup with its authors.
+ As described in the previous section, the workload for TLC was to generate
+ the state graph of the Bakery spec up to the arbitrarily chosen diameter
+ of 42 (corresponding to approximately 
+\begin_inset Formula $16*10^{9}$
+\end_inset
+
+ generated states).
+ Similarly, we configured Apalache to check the enabled transitions up to
+ length 42 and to skip invariants.
+ In the results table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:Wall-clock-TLC-apalache"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, Apalache Sequential corresponds to version 0.6.1-SNAPSHOT build v0.6.0-14-gba1f845
+ and Apalache Multicore to version 0.8.0-SNAPSHOT build v0.6.0-207-g5896a17.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Bakery for Apalache is at https://raw.githubusercontent.com/konnov/apalache/master
+/test/tla/Bakery.tla
+\end_layout
+
+\end_inset
+
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Because Apalache Sequential does not scale up to multiple cores, we did
+ not execute Apalache Sequential on the Azure instance described above but
+ on a desktop machine.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="4" columns="6">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="middle" width="0pt">
+<column alignment="center" valignment="middle" width="0pt">
+<column alignment="center" valignment="middle" width="0pt">
+<column alignment="center" valignment="middle" width="0pt">
+<column alignment="center" valignment="middle" width="0pt">
+<column alignment="center" valignment="middle" width="0pt">
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="1" alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+TLC
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="1" alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Apalache
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+StateQueue (1 worker)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+StateQueue
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+PageQueue
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Sequential
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Multicore
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+wall-clock time
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2h16m
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2h1m
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+21m
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+37h41m
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1h21m
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+diameter
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+31
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+42
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+42
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+32
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+19
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:Wall-clock-TLC-apalache"
+
+\end_inset
+
+Wall-clock time for TLC and Apalache.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Related Work
+\end_layout
+
+\begin_layout Itemize
+No central queue in distributed ProB 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Korner2018"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Enumerate
+(Distributed) ProB no central queue
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Michael1996"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+http://concurrencyfreaks.blogspot.com/2018/01/a-lock-free-persistent-queue.html
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+https://github.com/vmlens/executor-service
+\end_layout
+
+\begin_layout Enumerate
+https://jankotek.gitbooks.io/mapdb/btreemap/
+\end_layout
+
+\begin_layout Enumerate
+https://github.com/boboweike/bigqueue
+\end_layout
+
+\begin_layout Enumerate
+https://github.com/square/tape
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Conclusion
+\end_layout
+
+\begin_layout Section
+Future Work
+\end_layout
+
+\begin_layout Standard
+Scaling TLC's on-the-fly state graph generation to large core counts is
+ the stepping-stone to enable performance optimizations at the level of
+ the evaluation of next-state relation.
+ Without it, the performance gains of optimizations such as the ones listed
+ below, would have been overshadowed.
+ Additionally, we hope to adapt PageQueue for use in distributed TLC whose
+ non-distributed queue of unexplored states is also the scalability bottleneck.
+\end_layout
+
+\begin_layout Itemize
+Memoization of frequently evaluated TLA+ expression (compare 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Blom2010"
+literal "false"
+
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Itemize
+Replacing TLC's naive, left-to-right evaluator with a partial evaluation
+\end_layout
+
+\begin_layout Itemize
+On-the-fly synthesizing of TLC operators
+\end_layout
+
+\begin_layout Itemize
+...
+\end_layout
+
+\begin_layout Standard
+\start_of_appendix
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+bibfiles "/home/markus/bibliography/bibtex"
+options "eptcs"
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
