@@ -98,7 +98,8 @@ Random Thoughts:
   memory/space requirement whereas the space requirement of a queue of page handles
   (filenames) is linear in the number of (unseen) pages.  Most off-the-shelf queue
   implementations have significant overhead too bc they e.g. wrap each element in a
-  linkedlist node.
+  linkedlist node (not the best of arguments, because we have Pages, which -even when 
+  reused to reduce GC pressure- are logically written to disk).
 
 - Let the first generation of pages be those when head - tail = 1.  In other words pages
   are produced and consumed at a similar rate.  This is the case at the beginning of model
