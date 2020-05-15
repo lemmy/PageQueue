@@ -373,7 +373,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION PCal-1230f66c93497b1a9d145cd9cbbbf4a1
+\* BEGIN TRANSLATION - the hash of the PCal code: PCal-1230f66c93497b1a9d145cd9cbbbf4a1
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -451,7 +451,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 190, column 20.")
+                                             "Failure of assertion at line 195, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -481,12 +481,12 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 226, column 24.")
+                                             "Failure of assertion at line 231, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF head = tail - Cardinality(Workers)
                                          THEN /\ Assert(h[self] = np, 
-                                                        "Failure of assertion at line 242, column 24.")
+                                                        "Failure of assertion at line 247, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF h[self] # np /\ head <= tail
@@ -509,14 +509,14 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 245, column 33.")
+                                   "Failure of assertion at line 250, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 292, column 18.")
+                      "Failure of assertion at line 297, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = history \o << Op(self, "deq", t[self]) >>
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -541,7 +541,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 331, column 20.")
+                         "Failure of assertion at line 336, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
@@ -605,7 +605,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION TLA-1e0baba5d2444c87e7417d93f428cbef
+\* END TRANSLATION - the hash of the generated TLA code (remove to silence divergence warnings): TLA-4c66a6a49c34790f83720dd8ffeadc2d
 -----------------------------------------------------------------------------
 
 

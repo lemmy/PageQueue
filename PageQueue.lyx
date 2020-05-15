@@ -94,11 +94,19 @@ knitr
 \begin_body
 
 \begin_layout Section*
-\begin_inset Note Note
-status collapsed
-
-\begin_layout Section*
 WIP
+\end_layout
+
+\begin_layout Itemize
+Can we give an 
+\begin_inset Quotes eld
+\end_inset
+
+upper bound for the inconsistency
+\begin_inset Quotes erd
+\end_inset
+
+ (limited non-determinism) that results from relaxing FIFO?
 \end_layout
 
 \begin_layout Subsection*
@@ -198,8 +206,67 @@ Various
 \end_layout
 
 \begin_layout Itemize
+Java API (IStateQueue) and independence of TLC (use PageQueue without TLC)
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+tlc2.tool.Worker implements parts of the PageQueue spec (maintaining the per-worke
+r state, ie.
+ the page cache)
+\end_layout
+
+\begin_layout Itemize
+Refactor this code out of Worker to be able to use PageQueue in isolation
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Use a n:1 mapping (with n = number of workers) from PageQueue instances
+ to one PageQueueCore.
+ PageQueue maintains per-worker state while PageQueueCore is the actual
+ PageQueue.
+ Overhead because of one level of indirection should be acceptable compared
+ to:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+False sharing introduced by using a array in old PageQueue that maps from
+ Worker to Page
+\end_layout
+
+\begin_layout Itemize
+Overhead of ThreadLocal storage (internally uses a map)
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+This suggests to think about Page instances as in-memory caches.
+\end_layout
+
+\begin_layout Itemize
+A PageQueue instance could also enqueue a Page when the maximum diameter
+ between any two states in a page grows beyond a threshold.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Use generic instead of hardwiring PageQueue to TLCState, ie.
+ PageQueue<E>
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
 PageQueue on Windows (non-POSIX) broken?
 \end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset line
+LatexCommand rule
+offset "0.5ex"
+width "100col%"
+height "1pt"
 
 \end_inset
 
@@ -4727,6 +4794,11 @@ Related Work
 \end_layout
 
 \begin_layout Itemize
+What do other explicit-state MCs do to vertically scale BFS?
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
 No central queue in distributed ProB 
 \begin_inset CommandInset citation
 LatexCommand citep
@@ -4738,6 +4810,301 @@ literal "false"
 
 \end_layout
 
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Holzmann2012,Holzmann2007,Holzmann2008,Holzmann2011"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Filippidis2014"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Laarman2011a"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+What are the shapes of state graph/Properties of state spaces?
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Pelanek2008"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Queues
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Hoffman2007"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+asdf
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Itemize
+Relaxed data-structures to scale vertically (none seem to take persistence
+ into account, unclear if about bounded or unbouded fifos)
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Afek2010"
+literal "false"
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Quotes eld
+\end_inset
+
+claim a thread pool does not need strict FIFO
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+Define quasi-linearizability (to give a bound k for which e.g.
+ a FIFO relaxes strict order by k elements elsewhere called 
+\begin_inset Quotes eld
+\end_inset
+
+semantical deviation
+\begin_inset Quotes erd
+\end_inset
+
+)
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Payer2011"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+k-fifo is a fifo built from 
+\begin_inset Formula $p$
+\end_inset
+
+ (back-end) fifos with a load balancer in front
+\end_layout
+
+\begin_layout Itemize
+perfect load balancer: two atomic counters that direct enqueue and dequeue
+ to one of the back-end fifos
+\end_layout
+
+\begin_layout Itemize
+probabilistic balancer: Scale better because no contention/coherence like
+ perfect load balancer
+\end_layout
+
+\begin_layout Itemize
+load balancer bound the semantical deviation from strict fifo
+\end_layout
+
+\begin_layout Itemize
+Q: What I came up with is *just* a (perfect) load balancer, authors don't
+ say if a high-level operation is atomic wrt the load balancer and the chosen,
+ internal fifo (the op on the internal fifo might pause indefinitely)
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Shavit1995"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Paper defines a 
+\begin_inset Quotes eld
+\end_inset
+
+pool/pipe/producer-consumer buffer
+\begin_inset Quotes erd
+\end_inset
+
+ that relaxes a fifo queue but still provides two important properties
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Enq op always succeeds
+\end_layout
+
+\begin_layout Itemize
+Deq always succeeds iff pool is not empty
+\end_layout
+
+\begin_layout Itemize
+Provides *no* causal ordering on the enq and deq values
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Moir2005"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Elimination for queues (instead of stacks)
+\end_layout
+
+\begin_layout Itemize
+E.
+ easy when queue is empty
+\end_layout
+
+\begin_layout Itemize
+If not empty, let operations age long enough before they get eliminated
+\end_layout
+
+\begin_layout Itemize
+R: elimination backoff queue is practical only for very short queues.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Shavit2011"
+literal "false"
+
+\end_inset
+
+ Data structure in the multicore age (CACM article): Refines a lock-based
+ stack, via a lock-free, lock-free stacks with balancer tree, ...
+ with elimination arrays, to a pool of stacks with work stealing
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Quotes eld
+\end_inset
+
+I expect the greatest change we will see is that concurrent data structures
+ will go through a substantiative “relaxation process.
+\begin_inset Quotes erd
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+Elimination Arrays and Elimination Trees
+\end_layout
+
+\begin_layout Itemize
+From Queues to 
+\begin_inset Quotes eld
+\end_inset
+
+Pools
+\begin_inset Quotes erd
+\end_inset
+
+ (no temporal ordering)
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+R: What seems to be the differentiating requirement that an explict-state
+ model-checker poses on a queue is that the queue growth gigantic over time.
+ The queue is also unbounded and persistent to disk.
+ The literature above only studies in-memory queues and - while not explicitly
+ mentioning bounded queues - generally assumes queues of moderate size.
+\end_layout
+
+\begin_layout Itemize
+R: TLC's workload wrt the queue is highly balanced, i.e.
+ number of enqueue and dequeue are the same for the majority of time (enqs
+ more in the beginning of modelchecking and dequeues at the end)
+\end_layout
+
+\begin_layout Itemize
+R: I speculate that the work above optimizes too much on reducing contention
+ while sacrificing coherence (but coherence causes systems to scale negatively
+ and not just flatten out like contention)
+\end_layout
+
+\end_deeper
 \begin_layout Standard
 \begin_inset Note Note
 status collapsed
@@ -4824,6 +5191,26 @@ On-the-fly synthesizing of TLC operators
 
 \begin_layout Itemize
 ...
+\end_layout
+
+\begin_layout Itemize
+Replace single atomic counter with scalable 
+\begin_inset Quotes eld
+\end_inset
+
+counting network
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "Aspnes1994"
+literal "false"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
