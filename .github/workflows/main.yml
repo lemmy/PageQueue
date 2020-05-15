@@ -14,4 +14,4 @@ jobs:
     - name: Get TLA+ Community Modules
       run: wget https://github.com/tlaplus/CommunityModules/releases/download/202001241844/CommunityModules-202001241844.jar
     - name: Run TLC
-      run: java -Dtlc2.TLC.stopAfter=1800 -Dtlc2.TLC.ide=Github -cp tla2tools.jar:CommunityModules-202001241844.jar tlc2.TLC -workers auto -lncheck final -checkpoint 60 -coverage 60 -tool MC.tla
+      run: java -Dtlc2.TLC.stopAfter=1800 -Dtlc2.TLC.ide=Github -Dutil.ExecutionStatisticsCollector.id=1efd5c60f238424fa70d124d0c77bbf0 -cp tla2tools.jar:CommunityModules-202001241844.jar tlc2.TLC -workers auto -lncheck final -checkpoint 60 -coverage 60 -tool MC.tla
