@@ -73,6 +73,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
          history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ];
        
        define {
+           appendHistory(p,o,h) == history \o << Op(p, o, h) >>
            (*******************************************************************)
            (* The sequence of enqueued pages and dequeued pages respectively. *)
            (*******************************************************************)
@@ -283,7 +284,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                         (* queue, hence relaxed queue.                            *)
                         (**********************************************************)
                         disk := disk \cup {h};
-                        history := history \o << Op(self, "enq", h) >>;
+                        history := appendHistory(self, "enq", h);
                         h := np;
                         goto wt;
                     } else {
@@ -296,7 +297,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                  };
             rd:  assert t \in disk;
                  disk := disk \ {t};
-                 history := history \o << Op(self, "deq", t) >>;
+                 history := appendHistory(self, "deq", t);
                  
             (*****************************************************************)
             (* 2. Stage:  Evaluate spec's next-state relation.               *)
@@ -350,7 +351,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
             (* determines the identifier (e.g. file-name) of the page.   *)
             (*************************************************************)
             wrt: disk := disk \cup {h};
-                 history := history \o << Op(self, "enq", h) >>;
+                 history := appendHistory(self, "enq", h);
                  h := np;
                  either { goto deq; } or { goto exp; };
                      
@@ -377,6 +378,10 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
+appendHistory(p,o,h) == history \o << Op(p, o, h) >>
+
+
+
 Enqueued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"), "page")
 Dequeued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"), "page")
 
@@ -491,7 +496,7 @@ wt1(self) == /\ pc[self] = "wt1"
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF h[self] # np /\ head <= tail
                                                     THEN /\ disk' = (disk \cup {h[self]})
-                                                         /\ history' = history \o << Op(self, "enq", h[self]) >>
+                                                         /\ history' = appendHistory(self, "enq", h[self])
                                                          /\ h' = [h EXCEPT ![self] = np]
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                     ELSE /\ TRUE
@@ -518,7 +523,7 @@ rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
                       "Failure of assertion at line 297, column 18.")
             /\ disk' = disk \ {t[self]}
-            /\ history' = history \o << Op(self, "deq", t[self]) >>
+            /\ history' = appendHistory(self, "deq", t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
             /\ UNCHANGED << tail, head, result, t, h >>
 
@@ -566,7 +571,7 @@ clm2(self) == /\ pc[self] = "clm2"
 
 wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = (disk \cup {h[self]})
-             /\ history' = history \o << Op(self, "enq", h[self]) >>
+             /\ history' = appendHistory(self, "enq", h[self])
              /\ h' = [h EXCEPT ![self] = np]
              /\ \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
                 \/ /\ pc' = [pc EXCEPT ![self] = "exp"]
