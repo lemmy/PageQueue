@@ -178,8 +178,8 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        (* A worker process has the following high-level stages:          *)
        (* 1) deq to rd:  Dequeue a page iff one is available.            *)
        (* 2) exp:        Evaluate the next-state relation.               *)
-       (* 3) enq to wrt: Enqueue a newly generate page.                  *)
-       (* In the first state a worker will check for a "fin" or "vio"    *)
+       (* 3) enq to wrt: Enqueue a newly generated page.                 *)
+       (* In the first stage a worker will check for a "fin" or "vio"    *)
        (* signal from another worker.                                    *)
        (******************************************************************)
        fair process (worker \in Workers) 
@@ -373,7 +373,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION - the hash of the PCal code: PCal-1230f66c93497b1a9d145cd9cbbbf4a1
+\* BEGIN TRANSLATION
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -605,7 +605,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION - the hash of the generated TLA code (remove to silence divergence warnings): TLA-4c66a6a49c34790f83720dd8ffeadc2d
+\* END TRANSLATION
 -----------------------------------------------------------------------------
 
 
