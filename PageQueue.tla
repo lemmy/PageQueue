@@ -1,5 +1,6 @@
 ----------------------------- MODULE PageQueue -----------------------------
-EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, TLCExt
+EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, TLCExt,
+        Randomization
 
 (***********************************************)
 (* The set of naturals without zero: 1,2,3,... *)
@@ -31,7 +32,60 @@ CONSTANT Workers,
          Pages                
                               
 ASSUME /\ Workers # {}            (* At least one worker. *)
-       /\ Pages \in NatP 
+       /\ Pages \in NatP
+
+-----------------------------------------------------------------------------
+
+\* Note: To collect statistics with simulation, in the model do:
+\* - redefine:
+\* -- appendHistory to <<>>
+\* -- TotalWork to FALSE
+\* - Prevent a suffix of infinite stuttering to keep simulation from
+\*   generating a suffix of stuttering steps up to -depth N. 
+\* -- Action Constraint: ~Terminating
+\* - Increase -depth to a large value 
+\* - Amend behavior spec to initialize TLCSet registers:
+\* -- InitializeStats /\ Spec
+\* - Manually add POSTCONDITION PrintStats to (generated) MC.cfg 
+\* -- POSTCONDITION is not yet supported by Toolbox :-(
+\* - Run TLC with -Dtlc2.tool.Simulator.actionStats=true (this is a hack)
+
+(****************************************************************************)
+(* The (first) argument of TLCSet/Get has to be in Nat.  Thus, map the set  *)
+(* of workers to the subset 1..Cardinality(Workers) of Nat.  We do not care *)
+(* what the actual mapping is and thus choose one of it.                    *)
+(* In idiomatic TLA+ this would be expressed as:                            *) 
+(*   CHOOSE mapping \in [ Workers -> 1..Cardinality(Workers) ]: TRUE        *)
+(* however, this becomes a bottleneck for TLC for larger Workers set.       *)
+(****************************************************************************)
+w2i == CHOOSE mapping \in RandomSubset(Cardinality(Workers),
+                               [ Workers -> 1..Cardinality(Workers) ]): TRUE
+
+(****************************************************************************)
+(* Initialize the register of TLCSet for all values in the range of w2i.    *)
+(* Amend model's behavior spec to: InitializeStats /\ Spec                  *)
+(****************************************************************************)
+InitializeStats == \A n \in 1..Cardinality(Workers): TLCSet(n, 0)
+
+(****************************************************************************)
+(* Print the value of all registers/for all values in the range of w2i.     *)
+(* Should be evaluated as a POSTCONDITION in the model's config file.       *)
+(****************************************************************************)
+PrintStats == \A w \in Workers: PrintT(<<w, TLCGet(w2i[w])>>)
+
+(****************************************************************************)
+(* For the given worker, increment the register by one. TLCDefer makes sure *)
+(* that we don't inflate the statistics by incrementing the register for    *)
+(* states that are not part of the current behavior.  This is only relevant *)
+(* In simulation mode s.t. the expression e in TLCDefer(e) will be          *)
+(* evaluated only for the states of the current and not for the set of all  *)
+(* states of the behavior and their successors.  For exhaustive model-      *)
+(* checking, a model override should turn IncrementStats into a no-op by    *)
+(* substituting TRUE for it.                                                *)
+(* Get TLCDefer by downloading the TLA+ CommunityModules.jar from           *)
+(* http://modules.tlapl.us/ and adding it to TLC's classpath.               *)
+(****************************************************************************)
+IncrementStats(w) == TLCDefer(TLCSet(w2i[w], TLCGet(w2i[w]) + 1))
 
 -----------------------------------------------------------------------------
 
@@ -292,6 +346,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                         (* Page not yet readable (the producer of the page *)
                         (* has not yet written the page to disk).          *) 
                         (***************************************************)
+                        await IncrementStats(self);
                         skip; \* Same as goto wt;
                     }
                  };
@@ -374,7 +429,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "fc9bfd28" /\ chksum(tla) = "f318c094")
+\* BEGIN TRANSLATION (chksum(pcal) = "a89e4" /\ chksum(tla) = "8057994b")
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -456,7 +511,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 196, column 20.")
+                                             "Failure of assertion at line 243, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -486,12 +541,12 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 232, column 24.")
+                                             "Failure of assertion at line 279, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF head = tail - Cardinality(Workers)
                                          THEN /\ Assert(h[self] = np, 
-                                                        "Failure of assertion at line 248, column 24.")
+                                                        "Failure of assertion at line 295, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF h[self] # np /\ head <= tail
@@ -499,7 +554,8 @@ wt1(self) == /\ pc[self] = "wt1"
                                                          /\ history' = appendHistory(self, "enq", h[self])
                                                          /\ h' = [h EXCEPT ![self] = np]
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
-                                                    ELSE /\ TRUE
+                                                    ELSE /\ IncrementStats(self)
+                                                         /\ TRUE
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                          /\ UNCHANGED << disk, 
                                                                          history, 
@@ -514,14 +570,14 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 251, column 33.")
+                                   "Failure of assertion at line 298, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 298, column 18.")
+                      "Failure of assertion at line 346, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = appendHistory(self, "deq", t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -546,7 +602,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 337, column 20.")
+                         "Failure of assertion at line 385, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
@@ -612,6 +668,5 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 -----------------------------------------------------------------------------
-
 
 =============================================================================
