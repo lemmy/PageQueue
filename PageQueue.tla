@@ -698,4 +698,12 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 \* END TRANSLATION
 -----------------------------------------------------------------------------
 
+(***************************************************************************)
+(* Definition override for Terminating to print the behavior's history     *)
+(* after all workers have terminated.                                      *)
+(***************************************************************************)
+TerminatingPrint ==
+           /\ \A self \in ProcSet: pc[self] = "Done"
+           /\ Print(<<"Length: " \o ToString(TLCGet("level")), history>>, FALSE)
+
 =============================================================================
