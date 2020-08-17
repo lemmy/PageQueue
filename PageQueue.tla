@@ -341,6 +341,9 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                         history := appendHistory(self, "enq", h);
                         h := np;
                         goto wt;
+                    } else if (h # np) {
+                        await IncrementStats(self);
+                        goto wt;
                     } else {
                         (***************************************************)
                         (* Page not yet readable (the producer of the page *)
