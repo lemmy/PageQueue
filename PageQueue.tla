@@ -386,9 +386,16 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
            (*  ("goto enq" means we have to end up claiming a new page!!!) *)
            (****************************************************************)
             enq: if (h = np) {
-                      either { goto violation; } or { goto claim; };
+                      with ( i \in {RandomElement(1..50)} ) {
+                        either { await i = 1; goto violation; } 
+                            or { await i \in 2..50; goto claim; };
+                      }
                  } else if (h # np) {
-                      either { goto violation; } or { goto wrt; } or { goto deq; };
+                      with ( i \in {RandomElement(1..50)} ) {
+                         either { await i = 1; goto violation; } 
+                             or { await i \in 2..45; goto wrt; } 
+                             or { await i \in 46..50; goto deq; };
+                      }
                  };
 
             claim: assert h = np;
@@ -396,8 +403,10 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                    clm2:  CAS(result, head, h, h + 1);
                           if (result) {
                              h := h + 1;
-                             either { goto deq; } 
-                                 or { goto wrt; };
+                             with ( i \in {RandomElement(1..10)} ) {
+                                 either { await i \in 1..5; goto deq; } 
+                                     or { await i \in 6..10; goto wrt; };
+                             }
                           } else {
                               goto clm1;
                           };
@@ -410,7 +419,10 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
             wrt: disk := disk \cup {h};
                  history := appendHistory(self, "enq", h);
                  h := np;
-                 either { goto deq; } or { goto exp; };
+                 with ( i \in {RandomElement(1..10)} ) {
+                      either { await i \in 1..5; goto deq; } 
+                          or { await i \in 6..10; goto exp; };
+                 };
                      
             \*-----------------------------------------------------------*\
             
@@ -431,7 +443,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "8c246570" /\ chksum(tla) = "dd04ddd4")
+\* BEGIN TRANSLATION (chksum(pcal) = "39a5f12b" /\ chksum(tla) = "a407980f")
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -556,8 +568,11 @@ wt1(self) == /\ pc[self] = "wt1"
                                                          /\ history' = appendHistory(self, "enq", h[self])
                                                          /\ h' = [h EXCEPT ![self] = np]
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
-                                                    ELSE /\ TRUE
-                                                         /\ pc' = [pc EXCEPT ![self] = "wt"]
+                                                    ELSE /\ IF h[self] # np
+                                                               THEN /\ IncrementStats(self)
+                                                                    /\ pc' = [pc EXCEPT ![self] = "wt"]
+                                                               ELSE /\ TRUE
+                                                                    /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                          /\ UNCHANGED << disk, 
                                                                          history, 
                                                                          h >>
@@ -578,7 +593,7 @@ casB(self) == /\ pc[self] = "casB"
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 352, column 18.")
+                      "Failure of assertion at line 355, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = appendHistory(self, "deq", t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -592,18 +607,25 @@ exp(self) == /\ pc[self] = "exp"
 
 enq(self) == /\ pc[self] = "enq"
              /\ IF h[self] = np
-                   THEN /\ \/ /\ pc' = [pc EXCEPT ![self] = "violation"]
-                           \/ /\ pc' = [pc EXCEPT ![self] = "claim"]
+                   THEN /\ \E i \in {RandomElement(1..50)}:
+                             \/ /\ i = 1
+                                /\ pc' = [pc EXCEPT ![self] = "violation"]
+                             \/ /\ i \in 2..50
+                                /\ pc' = [pc EXCEPT ![self] = "claim"]
                    ELSE /\ IF h[self] # np
-                              THEN /\ \/ /\ pc' = [pc EXCEPT ![self] = "violation"]
-                                      \/ /\ pc' = [pc EXCEPT ![self] = "wrt"]
-                                      \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
+                              THEN /\ \E i \in {RandomElement(1..50)}:
+                                        \/ /\ i = 1
+                                           /\ pc' = [pc EXCEPT ![self] = "violation"]
+                                        \/ /\ i \in 2..45
+                                           /\ pc' = [pc EXCEPT ![self] = "wrt"]
+                                        \/ /\ i \in 46..50
+                                           /\ pc' = [pc EXCEPT ![self] = "deq"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "claim"]
              /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 391, column 20.")
+                         "Failure of assertion at line 401, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
@@ -620,8 +642,11 @@ clm2(self) == /\ pc[self] = "clm2"
                          /\ head' = head
               /\ IF result'[self]
                     THEN /\ h' = [h EXCEPT ![self] = h[self] + 1]
-                         /\ \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
-                            \/ /\ pc' = [pc EXCEPT ![self] = "wrt"]
+                         /\ \E i \in {RandomElement(1..10)}:
+                              \/ /\ i \in 1..5
+                                 /\ pc' = [pc EXCEPT ![self] = "deq"]
+                              \/ /\ i \in 6..10
+                                 /\ pc' = [pc EXCEPT ![self] = "wrt"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "clm1"]
                          /\ h' = h
               /\ UNCHANGED << tail, disk, history, t >>
@@ -630,8 +655,11 @@ wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = (disk \cup {h[self]})
              /\ history' = appendHistory(self, "enq", h[self])
              /\ h' = [h EXCEPT ![self] = np]
-             /\ \/ /\ pc' = [pc EXCEPT ![self] = "deq"]
-                \/ /\ pc' = [pc EXCEPT ![self] = "exp"]
+             /\ \E i \in {RandomElement(1..10)}:
+                  \/ /\ i \in 1..5
+                     /\ pc' = [pc EXCEPT ![self] = "deq"]
+                  \/ /\ i \in 6..10
+                     /\ pc' = [pc EXCEPT ![self] = "exp"]
              /\ UNCHANGED << tail, head, result, t >>
 
 violation(self) == /\ pc[self] = "violation"
