@@ -114,7 +114,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
          (* The pages that have been written to disk during the generation of *)
          (* the initial states. disk \in  { {1}, {1,2}, {1,2,3}, ... }        *)
          (*********************************************************************)
-         disk \in { 1..i : i \in 1..Pages };
+         disk = {1}; \* Only a single page enqueued at startup, was \in { 1..i : i \in 1..Pages };
          (*********************************************************************)
          (* A strictly monotone increasing counter. Its value marks the last  *)
          (* page that has been enqueued.                                      *)
@@ -346,7 +346,6 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                         (* Page not yet readable (the producer of the page *)
                         (* has not yet written the page to disk).          *) 
                         (***************************************************)
-                        await IncrementStats(self);
                         skip; \* Same as goto wt;
                     }
                  };
@@ -429,7 +428,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "a89e4" /\ chksum(tla) = "8057994b")
+\* BEGIN TRANSLATION (chksum(pcal) = "8c246570" /\ chksum(tla) = "dd04ddd4")
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -496,7 +495,7 @@ ProcSet == (Workers)
 
 Init == (* Global variables *)
         /\ tail = 0
-        /\ disk \in { 1..i : i \in 1..Pages }
+        /\ disk = {1}
         /\ head = Max(disk)
         /\ history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ]
         (* Process worker *)
@@ -511,7 +510,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 243, column 20.")
+                                             "Failure of assertion at line 250, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -541,12 +540,12 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 279, column 24.")
+                                             "Failure of assertion at line 286, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF head = tail - Cardinality(Workers)
                                          THEN /\ Assert(h[self] = np, 
-                                                        "Failure of assertion at line 295, column 24.")
+                                                        "Failure of assertion at line 302, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF h[self] # np /\ head <= tail
@@ -554,8 +553,7 @@ wt1(self) == /\ pc[self] = "wt1"
                                                          /\ history' = appendHistory(self, "enq", h[self])
                                                          /\ h' = [h EXCEPT ![self] = np]
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
-                                                    ELSE /\ IncrementStats(self)
-                                                         /\ TRUE
+                                                    ELSE /\ TRUE
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                          /\ UNCHANGED << disk, 
                                                                          history, 
@@ -570,14 +568,14 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 298, column 33.")
+                                   "Failure of assertion at line 305, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 346, column 18.")
+                      "Failure of assertion at line 352, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = appendHistory(self, "deq", t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -602,7 +600,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 385, column 20.")
+                         "Failure of assertion at line 391, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
