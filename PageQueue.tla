@@ -237,7 +237,11 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        (* In the first stage a worker will check for a "fin" or "vio"    *)
        (* signal from another worker.                                    *)
        (******************************************************************)
-       fair process (worker \in Workers) 
+       fair process (worker \in Workers)
+            \* h doesn't suffer from the ABA problem because it is monotonically
+            \* increasing. t, on the other hand, can exhibit ABA because its
+            \* value increments *and* decrements (to vio or fin) shortly before
+            \* termination. 
             variables result = FALSE, t = 0, h = np; {
             
             (****************************************************************)
