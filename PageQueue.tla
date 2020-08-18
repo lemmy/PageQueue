@@ -714,4 +714,43 @@ TerminatingPrint ==
 (***************************************************************************)
 AllInWaitStage == Range(pc) \subseteq {"wt","wt1"}
 
+-----------------------------------------------------------------------------
+
+(***************************************************************************)
+(* No two workers claimed/hold the same page.                              *)
+(***************************************************************************)
+ExclusiveEnqueue ==
+     \A w, v \in Workers:
+           \* Not the same worker
+           /\ w # v
+           \* No page claimed
+           /\ h[w] # np
+           /\ h[v] # np
+           \* At these labels, races are a property of the algorithm due
+           \* to how CAS works.
+           /\ pc[w] \notin {"clm1", "clm2"}
+           /\ pc[v] \notin {"clm1", "clm2"}
+           => h[w] # h[v]
+
+(***************************************************************************)
+(* No two workers dequeue the same page.                                   *)
+(***************************************************************************)
+ExclusiveDequeue == 
+     \A w, v \in Workers:
+           \* Not the same worker
+           /\ w # v
+           \* At these two labels, races are a property of the algorithm due
+           \* to how CAS works.
+           /\ pc[w] \notin {"deq", "casA"}
+           /\ pc[v] \notin {"deq", "casA"}
+           \* For these special values the property would not hold. The
+           \* algorithm re-purposes t to notify other workers when a
+           \* violation or termination has been detected (0 is simply
+           \* un-initialized). 
+           /\ pc[w] \notin {"violation", "Done", "retry"}
+           /\ pc[v] \notin {"violation", "Done", "retry"}
+           /\ t[w] \notin {0, vio, fin}
+           /\ t[v] \notin {0, vio, fin}
+           => t[w] # t[v]
+
 =============================================================================
