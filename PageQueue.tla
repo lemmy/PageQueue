@@ -706,4 +706,12 @@ TerminatingPrint ==
            /\ \A self \in ProcSet: pc[self] = "Done"
            /\ Print(<<"Length: " \o ToString(TLCGet("level")), history>>, FALSE)
 
+-----------------------------------------------------------------------------
+
+(***************************************************************************)
+(* All workers are in the waiting stage. This is not a livelock and does   *)
+(* violate any of the (safety or liveness) properties!                     *)
+(***************************************************************************)
+AllInWaitStage == Range(pc) \subseteq {"wt","wt1"}
+
 =============================================================================
