@@ -396,7 +396,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
            (*  violation:       CAS(fin),goto Done   | CAS(fin), goto Done *)
            (*  no succ:         (claim,) goto deq    | goto deq            *)
            (*  fits into page:  claim, goto deq      | goto deq            *)
-           (*  exactly fits p:  claim, wrt, goto deq | wrt, godo deq       *)
+           (*  exactly fits p:  claim, wrt, goto deq | wrt, goto deq       *)
            (*  exceeds page:    claim, wrt, goto enq | wrt, goto enq       *)
            (*                                                              *)
            (*  ("goto enq" means we have to end up claiming a new page!!!) *)
@@ -435,6 +435,12 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                  };
 
             claim: assert h = np;
+                   \* This could perhaps be refactored to fence-and-add,
+                   \* because the h/head variable is always monotonically
+                   \* increasing and we don't need to check its value for
+                   \* a special flag such as vio, fin, ...
+                   \* It would reduce the spec's state space and require
+                   \* fewer instructions in an implementation. 
                    clm1:  h := head;
                    clm2:  CAS(result, head, h, h + 1);
                           if (result) {
