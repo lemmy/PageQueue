@@ -50,6 +50,8 @@ ASSUME /\ Workers # {}            (* At least one worker. *)
 \* -- POSTCONDITION is not yet supported by Toolbox :-(
 \* - Run TLC with -Dtlc2.tool.Simulator.actionStats=true (this is a hack)
 
+SetOfRandomElement(S) == S \* Redefine to {RandomElement(S)} in model for simulation.
+
 (****************************************************************************)
 (* The (first) argument of TLCSet/Get has to be in Nat.  Thus, map the set  *)
 (* of workers to the subset 1..Cardinality(Workers) of Nat.  We do not care *)
@@ -390,16 +392,21 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
            (*  ("goto enq" means we have to end up claiming a new page!!!) *)
            (****************************************************************)
             enq: if (h = np) {
-                      with ( i \in {RandomElement(1..50)} ) {
-                        either { await i = 1; goto violation; } 
+                      with ( i \in SetOfRandomElement(1..50) ) {
+                        either { await i \in 1..1;  goto violation; } 
                             or { await i \in 2..50; goto claim; };
                       }
+\*                        either { goto violation; } 
+\*                            or { goto claim; };
                  } else if (h # np) {
-                      with ( i \in {RandomElement(1..50)} ) {
-                         either { await i = 1; goto violation; } 
-                             or { await i \in 2..45; goto wrt; } 
+                      with ( i \in SetOfRandomElement(1..50) ) {
+                         either { await i \in 1..1;   goto violation; } 
+                             or { await i \in 2..45;  goto wrt; } 
                              or { await i \in 46..50; goto deq; };
                       }
+\*                         either { goto violation; } 
+\*                             or { goto wrt; } 
+\*                             or { goto deq; };
                  };
 
             claim: assert h = np;
@@ -407,10 +414,12 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                    clm2:  CAS(result, head, h, h + 1);
                           if (result) {
                              h := h + 1;
-                             with ( i \in {RandomElement(1..10)} ) {
-                                 either { await i \in 1..5; goto deq; } 
-                                     or { await i \in 6..10; goto wrt; };
+                             with ( i \in SetOfRandomElement(1..2) ) {
+                                 either { await i \in 1..1; goto deq; } 
+                                     or { await i \in 2..2; goto wrt; };
                              }
+\*                                 either { goto deq; } 
+\*                                     or { goto wrt; };
                           } else {
                               goto clm1;
                           };
@@ -423,10 +432,12 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
             wrt: disk := disk \cup {h};
                  history := appendHistory(self, "enq", h);
                  h := np;
-                 with ( i \in {RandomElement(1..10)} ) {
-                      either { await i \in 1..5; goto deq; } 
-                          or { await i \in 6..10; goto exp; };
+                 with ( i \in SetOfRandomElement(1..2) ) {
+                      either { await i \in 1..1; goto deq; } 
+                          or { await i \in 2..2; goto exp; };
                  };
+\*                      either { goto deq; } 
+\*                          or { goto exp; };
                      
             \*-----------------------------------------------------------*\
             
