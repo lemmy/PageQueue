@@ -48,9 +48,11 @@ ASSUME /\ Workers # {}            (* At least one worker. *)
 \* -- InitializeStats /\ Spec
 \* - Manually add POSTCONDITION PrintStats to (generated) MC.cfg 
 \* -- POSTCONDITION is not yet supported by Toolbox :-(
-\* - Run TLC with -Dtlc2.tool.Simulator.actionStats=true (this is a hack)
+\* - Re-define SetOfRandomElement and SetOfInitialDisks in model
 
 SetOfRandomElement(S) == S \* Redefine to {RandomElement(S)} in model for simulation.
+
+SetOfInitialDisks == { 1..i : i \in 1..Pages } \* Redefine to {{1}} in model for sim.
 
 (****************************************************************************)
 (* The (first) argument of TLCSet/Get has to be in Nat.  Thus, map the set  *)
@@ -116,7 +118,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
          (* The pages that have been written to disk during the generation of *)
          (* the initial states. disk \in  { {1}, {1,2}, {1,2,3}, ... }        *)
          (*********************************************************************)
-         disk = {1}; \* Only a single page enqueued at startup, was \in { 1..i : i \in 1..Pages };
+         disk \in SetOfInitialDisks;
          (*********************************************************************)
          (* A strictly monotone increasing counter. Its value marks the last  *)
          (* page that has been enqueued.                                      *)
@@ -460,7 +462,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "2494697c" /\ chksum(tla) = "88440d0d")
+\* BEGIN TRANSLATION (chksum(pcal) = "fa8db8dd" /\ chksum(tla) = "3c332264")
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -527,7 +529,7 @@ ProcSet == (Workers)
 
 Init == (* Global variables *)
         /\ tail = 0
-        /\ disk = {1}
+        /\ disk \in SetOfInitialDisks
         /\ head = Max(disk)
         /\ history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ]
         (* Process worker *)
