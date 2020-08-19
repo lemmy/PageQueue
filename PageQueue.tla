@@ -392,6 +392,8 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
            (*  ("goto enq" means we have to end up claiming a new page!!!) *)
            (****************************************************************)
             enq: if (h = np) {
+                      \* Contrary to explicit sets, TLC will treat an interval
+                      \* lazily and not enumerate it to draw a RandomElement.
                       with ( i \in SetOfRandomElement(1..50) ) {
                         either { await i \in 1..1;  goto violation; } 
                             or { await i \in 2..50; goto claim; };
@@ -458,7 +460,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "39a5f12b" /\ chksum(tla) = "a407980f")
+\* BEGIN TRANSLATION (chksum(pcal) = "2494697c" /\ chksum(tla) = "88440d0d")
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -540,7 +542,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 250, column 20.")
+                                             "Failure of assertion at line 256, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -570,27 +572,34 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 286, column 24.")
+                                             "Failure of assertion at line 292, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF head = tail - Cardinality(Workers)
                                          THEN /\ Assert(h[self] = np, 
-                                                        "Failure of assertion at line 302, column 24.")
+                                                        "Failure of assertion at line 308, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
-                                         ELSE /\ IF h[self] # np /\ head <= tail
+                                         ELSE /\ IF h[self] # np /\ h[self] = t[self]
                                                     THEN /\ disk' = (disk \cup {h[self]})
                                                          /\ history' = appendHistory(self, "enq", h[self])
                                                          /\ h' = [h EXCEPT ![self] = np]
                                                          /\ pc' = [pc EXCEPT ![self] = "wt"]
-                                                    ELSE /\ IF h[self] # np
-                                                               THEN /\ IncrementStats(self)
+                                                    ELSE /\ IF h[self] # np /\ h[self] > t[self]
+                                                               THEN /\ disk' = (disk \cup {h[self]})
+                                                                    /\ history' = appendHistory(self, "enq", h[self])
+                                                                    /\ h' = [h EXCEPT ![self] = np]
                                                                     /\ pc' = [pc EXCEPT ![self] = "wt"]
-                                                               ELSE /\ TRUE
-                                                                    /\ pc' = [pc EXCEPT ![self] = "wt"]
-                                                         /\ UNCHANGED << disk, 
-                                                                         history, 
-                                                                         h >>
+                                                               ELSE /\ IF h[self] # np /\ h[self] < t[self] /\ head <= tail
+                                                                          THEN /\ disk' = (disk \cup {h[self]})
+                                                                               /\ history' = appendHistory(self, "enq", h[self])
+                                                                               /\ h' = [h EXCEPT ![self] = np]
+                                                                               /\ pc' = [pc EXCEPT ![self] = "wt"]
+                                                                          ELSE /\ TRUE
+                                                                               /\ pc' = [pc EXCEPT ![self] = "wt"]
+                                                                               /\ UNCHANGED << disk, 
+                                                                                               history, 
+                                                                                               h >>
              /\ UNCHANGED << tail, head, result, t >>
 
 casB(self) == /\ pc[self] = "casB"
@@ -601,14 +610,14 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 305, column 33.")
+                                   "Failure of assertion at line 311, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 355, column 18.")
+                      "Failure of assertion at line 383, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = appendHistory(self, "deq", t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -622,14 +631,14 @@ exp(self) == /\ pc[self] = "exp"
 
 enq(self) == /\ pc[self] = "enq"
              /\ IF h[self] = np
-                   THEN /\ \E i \in {RandomElement(1..50)}:
-                             \/ /\ i = 1
+                   THEN /\ \E i \in SetOfRandomElement(1..50):
+                             \/ /\ i \in 1..1
                                 /\ pc' = [pc EXCEPT ![self] = "violation"]
                              \/ /\ i \in 2..50
                                 /\ pc' = [pc EXCEPT ![self] = "claim"]
                    ELSE /\ IF h[self] # np
-                              THEN /\ \E i \in {RandomElement(1..50)}:
-                                        \/ /\ i = 1
+                              THEN /\ \E i \in SetOfRandomElement(1..50):
+                                        \/ /\ i \in 1..1
                                            /\ pc' = [pc EXCEPT ![self] = "violation"]
                                         \/ /\ i \in 2..45
                                            /\ pc' = [pc EXCEPT ![self] = "wrt"]
@@ -640,7 +649,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 401, column 20.")
+                         "Failure of assertion at line 436, column 20.")
                /\ pc' = [pc EXCEPT ![self] = "clm1"]
                /\ UNCHANGED << tail, disk, head, history, result, t, h >>
 
@@ -657,10 +666,10 @@ clm2(self) == /\ pc[self] = "clm2"
                          /\ head' = head
               /\ IF result'[self]
                     THEN /\ h' = [h EXCEPT ![self] = h[self] + 1]
-                         /\ \E i \in {RandomElement(1..10)}:
-                              \/ /\ i \in 1..5
+                         /\ \E i \in SetOfRandomElement(1..2):
+                              \/ /\ i \in 1..1
                                  /\ pc' = [pc EXCEPT ![self] = "deq"]
-                              \/ /\ i \in 6..10
+                              \/ /\ i \in 2..2
                                  /\ pc' = [pc EXCEPT ![self] = "wrt"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "clm1"]
                          /\ h' = h
@@ -670,10 +679,10 @@ wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = (disk \cup {h[self]})
              /\ history' = appendHistory(self, "enq", h[self])
              /\ h' = [h EXCEPT ![self] = np]
-             /\ \E i \in {RandomElement(1..10)}:
-                  \/ /\ i \in 1..5
+             /\ \E i \in SetOfRandomElement(1..2):
+                  \/ /\ i \in 1..1
                      /\ pc' = [pc EXCEPT ![self] = "deq"]
-                  \/ /\ i \in 6..10
+                  \/ /\ i \in 2..2
                      /\ pc' = [pc EXCEPT ![self] = "exp"]
              /\ UNCHANGED << tail, head, result, t >>
 
