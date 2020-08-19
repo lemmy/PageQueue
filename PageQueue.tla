@@ -768,4 +768,62 @@ ExclusiveDequeue ==
            /\ t[v] \notin {0, vio, fin}
            => t[w] # t[v]
 
+-----------------------------------------------------------------------------
+
+(***************************************************************************)
+(* Set of workers that are not racing to enqueue (claim) or dequeue pages. *)
+(* Workers racing to enqueue a page cannot be part of a livelock but may   *)
+(* become so later.                                                        *)
+(***************************************************************************)
+NonCASWorkers == 
+   { w \in DOMAIN pc: pc[w] \notin {"clm1", "clm2", "deq", "casA"} }
+
+RECURSIVE Cycle(_,_,_,_)
+Cycle(p, seen, S, T) ==
+  \* Hitting np (no-page) implies that there is no livelock.
+  IF p = np THEN {}
+  ELSE IF p \in seen \/ seen = T
+       \* Terminating cases.
+       THEN seen \cup {p}
+       ELSE IF \E pair \in S: pair[1] = p
+            \* Choose from an empty set is bad, hence \E ...
+            \* Chop of q from S and recurse.
+            THEN LET q == CHOOSE pair \in S: pair[1] = p
+                 IN Cycle(q[2], seen \cup {p}, S, T)
+            ELSE {}
+
+(***************************************************************************)
+(* A livelock is defined to be a cyclic wait-for relationship of N workers *)
+(* with N \in 1..Cardinality(Workers). N=1 is considered a trivial         *)
+(* livelock (see NonTrivialLivelocks below).                               *)         
+(* A livelock occurs if workers busily wait on each others pages.  For     *)
+(* example, worker_i has page 42 and waits for page 23. Worker_j has page  *)
+(* 23 and waits for page 42.                                               *)
+(* Livelocks is a set of disjoint sets where each nested set is the set    *)
+(* of pages, which constitute a livelock according to the definiton above. *)
+(* The cardinality of a set equals the number of involved workers in the   *)
+(* livelock.                                                               *)
+(* In trace expressions, this is a useful representation:                  *)
+(* [ p \in Range(h) |->                                                    *)
+(*     Cycle(p, {}, { <<h[w], t[w]>>: w \in NonCASWorkers },               *)
+(*           (Range(h) \cup Range(t)) \ {np}) ]                            *)
+(***************************************************************************)
+Livelocks == 
+  { Cycle(p, {}, { <<h[w], t[w]>>: w \in NonCASWorkers }, 
+              (Range(h) \cup Range(t)) \ {np}) : p \in Range(h) } \ {{}}
+
+(***************************************************************************)
+(* A trivial livelock is one where a worker waits to dequeue a page that   *) 
+(* the worker has claimed itself.                                          *)
+(***************************************************************************)
+NonTrivialLivelocks ==
+  {cycle \in Livelocks: Cardinality(cycle) = 1}
+
+(***************************************************************************)
+(* FALSE if all workers are temporarily livelocked. The validity of the    *)
+(* Termination property above implies []<>NotAllLivelocked.                *)
+(***************************************************************************)
+NotAllLivelocked == 
+  \A cycle \in Livelocks: Cardinality(cycle) < Cardinality(Workers)
+
 =============================================================================
