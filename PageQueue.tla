@@ -406,15 +406,28 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                       \* lazily and not enumerate it to draw a RandomElement.
                       with ( i \in SetOfRandomElement(1..50) ) {
                         either { await i \in 1..1;  goto violation; } 
-                            or { await i \in 2..50; goto claim; };
+                            (* Set of successor states is not empty, create *)
+                            (* a new page for them.                         *)
+                            or { await i \in 2..48; goto claim; };
+                            (* For symmetry with the else branch, one would *)
+                            (* expect a goto deq here. However, we claim    *)
+                            (* a page anyway (a worker can goto deq from    *)
+                            (* claim). Not claiming a page would violate    *)
+                            (* the WSafety property, because of premature   *)
+                            (* termination (head would be lower than        *)
+                            (* expected.  Actual termination is detected by *)
+                            (* N claimed pages where N equals               *)
+                            (* Cardinality(Workers).                        *)
                       }
 \*                        either { goto violation; } 
 \*                            or { goto claim; };
                  } else if (h # np) {
                       with ( i \in SetOfRandomElement(1..50) ) {
-                         either { await i \in 1..1;   goto violation; } 
-                             or { await i \in 2..45;  goto wrt; } 
-                             or { await i \in 46..50; goto deq; };
+                         either { await i \in 1..1;   goto violation; }
+                             (* Current page is full, thus write it to disk *) 
+                             or { await i \in 2..48;  goto wrt; } 
+                             (* Set of successor states is empty (no succ). *)
+                             or { await i \in 49..50; goto deq; };
                       }
 \*                         either { goto violation; } 
 \*                             or { goto wrt; } 
@@ -427,7 +440,11 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                           if (result) {
                              h := h + 1;
                              with ( i \in SetOfRandomElement(1..2) ) {
+                                 (* set of successor states fits into  *)
+                                 (* page, thus no need to write page.  *)
                                  either { await i \in 1..1; goto deq; } 
+                                 (* set of successor states does not fit *)
+                                 (* into page, thus write it.            *)
                                      or { await i \in 2..2; goto wrt; };
                              }
 \*                                 either { goto deq; } 
@@ -445,6 +462,11 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                  history := appendHistory(self, "enq", h);
                  h := np;
                  with ( i \in SetOfRandomElement(1..2) ) {
+                      (* With the current page written and done, either  *)
+                      (* go to dequeue a new page or explore additional  *)
+                      (* states. The latter models the case where the    *)
+                      (* set of successor states doesn't fit into a      *)
+                      (* single page.                                    *)
                       either { await i \in 1..1; goto deq; } 
                           or { await i \in 2..2; goto exp; };
                  };
