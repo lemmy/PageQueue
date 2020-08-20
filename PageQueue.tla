@@ -46,8 +46,7 @@ ASSUME /\ Workers # {}            (* At least one worker. *)
 \* - Increase -depth to a large value 
 \* - Amend behavior spec to initialize TLCSet registers:
 \* -- InitializeStats /\ Spec
-\* - Manually add POSTCONDITION PrintStats to (generated) MC.cfg 
-\* -- POSTCONDITION is not yet supported by Toolbox :-(
+\* - Add PrintStats as Post Condition on TLC Options page of model
 \* - Re-define SetOfRandomElement and SetOfInitialDisks in model
 
 SetOfRandomElement(S) == S \* Redefine to {RandomElement(S)} in model for simulation.
