@@ -140,6 +140,12 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
          history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ];
        
        define {
+           \* Maintaining the history is super expensive because it is an ever-
+           \* growing sequence of operations (that has to be fingerprinted for
+           \* every state).  Consider re-defining the appendHistory operator
+           \* in the model with appendHistory(p,o,h) == <<>>.  Note though, that
+           \* the (safety) property WSafety will be violated because it depends
+           \* on the history.
            appendHistory(p,o,h) == history \o << Op(p, o, h) >>
            (*******************************************************************)
            (* The sequence of enqueued pages and dequeued pages respectively. *)
