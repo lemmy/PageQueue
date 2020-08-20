@@ -49,7 +49,9 @@ ASSUME /\ Workers # {}            (* At least one worker. *)
 \* - Add PrintStats as Post Condition on TLC Options page of model
 \* - Re-define SetOfRandomElement and SetOfInitialDisks in model
 
-SetOfRandomElement(S) == S \* Redefine to {RandomElement(S)} in model for simulation.
+SetOfRandomElement(S) == 
+   S \* Redefine to {RandomElement(S)} in model for simulation. 
+     \* {RandomElement(S)} \ {{1}} to reduce the probability of a violation to zero.
 
 SetOfInitialDisks == { 1..i : i \in 1..Pages } \* Redefine to {{1}} in model for sim.
 
@@ -407,7 +409,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                         either { await i \in 1..1;  goto violation; } 
                             (* Set of successor states is not empty, create *)
                             (* a new page for them.                         *)
-                            or { await i \in 2..48; goto claim; };
+                            or { await i \in 2..50; goto claim; };
                             (* For symmetry with the else branch, one would *)
                             (* expect a goto deq here. However, we claim    *)
                             (* a page anyway (a worker can goto deq from    *)
