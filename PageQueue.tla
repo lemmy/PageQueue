@@ -446,13 +446,15 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                    clm2:  CAS(result, head, h, h + 1);
                           if (result) {
                              h := h + 1;
-                             with ( i \in SetOfRandomElement(1..2) ) {
-                                 (* set of successor states fits into  *)
-                                 (* page, thus no need to write page.  *)
-                                 either { await i \in 1..1; goto deq; } 
+                             with ( i \in SetOfRandomElement(2..3) ) {
+                                 (* set of successor states fits into    *)
+                                 (* page, thus no need to write page.    *)
+                                 (* Just get the next page of unexplored *)
+                                 (* states.                              *)
+                                 either { await i \in 2..2; goto deq; } 
                                  (* set of successor states does not fit *)
                                  (* into page, thus write it.            *)
-                                     or { await i \in 2..2; goto wrt; };
+                                     or { await i \in 3..3; goto wrt; };
                              }
 \*                                 either { goto deq; } 
 \*                                     or { goto wrt; };
@@ -468,14 +470,14 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
             wrt: disk := disk \cup {h};
                  history := appendHistory(self, "enq", h);
                  h := np;
-                 with ( i \in SetOfRandomElement(1..2) ) {
+                 with ( i \in SetOfRandomElement(2..3) ) {
                       (* With the current page written and done, either  *)
                       (* go to dequeue a new page or explore additional  *)
                       (* states. The latter models the case where the    *)
                       (* set of successor states doesn't fit into a      *)
                       (* single page.                                    *)
-                      either { await i \in 1..1; goto deq; } 
-                          or { await i \in 2..2; goto exp; };
+                      either { await i \in 2..2; goto deq; } 
+                          or { await i \in 3..3; goto exp; };
                  };
 \*                      either { goto deq; } 
 \*                          or { goto exp; };
