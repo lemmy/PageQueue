@@ -157,7 +157,12 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
            (* Make state space explicitly finite (see enq) instead of       *)
            (* with a state constraint that interfers with liveness checking.*)
            (*****************************************************************)
-           TotalWork == Len(Enqueued) > Pages \/ Len(Dequeued) > Pages
+           \* A history-independent definition of TotalWork that gives only a
+           \* bound for tail but not head does not make the state space finite.
+           \* Unsurprisingly, it allows behaviors that keep increasing head,
+           \* which semantically corresponds to exploring a set of states that
+           \* have infinite successor states.
+           TotalWork(h,t) == Len(Enqueued) > Pages \/ Len(Dequeued) > Pages
        
            (******************************)
            (* Type correctness invariant *)
@@ -318,7 +323,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                        (* ----------------------------------------------------*)
                        (*TODO: LazySet is probably good enough because an     *)
                        (*      unsuccessful CAS means another worker CAS'ed   *)
-                       (*      fin before us (if which case we can go to      *)
+                       (*      fin before us (in which case we can go to      *)
                        (*      Done). This optimization is more about elegance*)
                        (*      than about performance though.                 *)
                        (*******************************************************)
@@ -389,7 +394,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
             (* trouble when checking liveness because the property can be    *)
             (* vacuously true (see Specifying Systems section 13.4.5).       *)
             (*****************************************************************)
-            exp: if (TotalWork) {
+            exp: if (TotalWork(head, tail)) {
                      goto deq;
                  } else {
                      goto enq;
