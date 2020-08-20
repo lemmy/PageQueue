@@ -439,6 +439,8 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                              (* Current page is full, thus write it to disk *) 
                              or { await i \in 2..48;  goto wrt; } 
                              (* Set of successor states is empty (no succ). *)
+                             (* (Can lead to temporary livelock that have   *)
+                             (* to be and are resolved in wt1 above)        *)
                              or { await i \in 49..50; goto deq; };
                       }
 \*                         either { goto violation; } 
@@ -462,6 +464,9 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                                  (* page, thus no need to write page.    *)
                                  (* Just get the next page of unexplored *)
                                  (* states.                              *)
+                                 (* (Can lead to temporary livelock that *)
+                                 (* have to be and are resolved in wt1   *)
+                                 (* above!)                              *) 
                                  either { await i \in 2..2; goto deq; } 
                                  (* set of successor states does not fit *)
                                  (* into page, thus write it.            *)
@@ -487,6 +492,8 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                       (* states. The latter models the case where the    *)
                       (* set of successor states doesn't fit into a      *)
                       (* single page.                                    *)
+                      (* (deq can lead to temporary livelock that have   *)
+                      (* to be and are resolved in wt1 above)            *)
                       either { await i \in 2..2; goto deq; } 
                           or { await i \in 3..3; goto exp; };
                  };
