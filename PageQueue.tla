@@ -339,7 +339,35 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                                 (************************************************)
                                 goto wt;
                              }
-                    } else if (h # np /\ head <= tail) {
+                    } else if (h # np /\ h = t) {
+                        \* 1. optimization:
+                        \* Trivial live-lock of one worker with itself.
+                        await IncrementStats(20, h);
+                        disk := disk \cup {h};
+                        history := appendHistory(self, "enq", h);
+                        h := np;
+                        goto wt;
+                    } else if (h # np /\ h > t) {
+                        \* 2. optimization:
+                        \* Break a (cyclic) live-lock of 2..n workers by making
+                        \* those workers - that are part of the cycle - release
+                        \* when they wait on a page that is newer than their
+                        \* current page.  In other words, the workers waiting
+                        \* for older pages do *not* release/return their pages.
+                        await IncrementStats(21, h);
+                        disk := disk \cup {h};
+                        history := appendHistory(self, "enq", h);
+                        h := np;
+                        goto wt;
+                    } else if (h # np /\ h < t /\ head <= tail) {
+                        \* Stop waiting for a page that may never exist (it might
+                        \* only exist as a result of this very enqueue operation).
+                        \* In other words, this branch is taken when a worker
+                        \* has not been able to fill its current page h and, thus,
+                        \* has to request another page (but there are none left).
+                        \* An implementation may collapsed the two branches above
+                        \* into this one, provided the 'h < t' conjunct is dropped
+                        \* from this conditional.
                         (**********************************************************)
                         (* A page transitions through the following states:       *)
                         (* New > Written > Claimed > Read > Deleted               *)
@@ -365,12 +393,10 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                         (* before t_j. This is however a general property of this *)
                         (* queue, hence relaxed queue.                            *)
                         (**********************************************************)
+                        await IncrementStats(22, h);
                         disk := disk \cup {h};
                         history := appendHistory(self, "enq", h);
                         h := np;
-                        goto wt;
-                    } else if (h # np) {
-                        await IncrementStats(self);
                         goto wt;
                     } else {
                         (***************************************************)
