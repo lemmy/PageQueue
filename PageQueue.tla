@@ -311,7 +311,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
             wt1:   if (tail = vio) {
                        goto Done;
                     } else if (tail = fin) {
-                       assert disk = {};
+                       assert h = np /\ disk = {};
                        goto Done;
                     } else if (head = tail - Cardinality(Workers)) {
                        (*******************************************************)
