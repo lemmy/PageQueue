@@ -74,15 +74,13 @@ ASSUME Cardinality(Workers) < 20
 InitializeStats ==
    \* Registers 20..22 to keep statistics about the branches related to
    \* livelock detection & resolution/recovery.
-   LET R == Cardinality(Workers)
-   IN /\ \A n \in (1..R \cup 20..22): TLCSet(n, 0)
+   \A n \in (20..22): TLCSet(n, [ i \in 1..Pages+10 |-> 0 ])
 
 (****************************************************************************)
 (* Print the value of all registers/for all values in the range of w2i.     *)
 (* Should be evaluated as a POSTCONDITION in the model's config file.       *)
 (****************************************************************************)
 PrintStats == 
-     /\ \A w \in Workers: PrintT(<<w, TLCGet(w2i[w])>>)
      /\ \A n \in 20..22 : PrintT(<<n, TLCGet(n)>>)
 
 (****************************************************************************)
@@ -97,8 +95,9 @@ PrintStats ==
 (* Get TLCDefer by downloading the TLA+ CommunityModules.jar from           *)
 (* http://modules.tlapl.us/ and adding it to TLC's classpath.               *)
 (****************************************************************************)
-IncrementStats(w) == IF w < 20 THEN TLCDefer(TLCSet(w2i[w], TLCGet(w2i[w]) + 1))
-                     ELSE TLCDefer(TLCSet(w, TLCGet(w) + 1))
+IncrementStats(n, i) == 
+    TLCDefer(
+         TLCSet(n, [ TLCGet(n) EXCEPT ![i] = @ + 1 ]))
 
 -----------------------------------------------------------------------------
 
