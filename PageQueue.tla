@@ -474,34 +474,23 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                  };
 
             claim: assert h = np;
-                   \* This could perhaps be refactored to fence-and-add,
-                   \* because the h/head variable is always monotonically
-                   \* increasing and we don't need to check its value for
-                   \* a special flag such as vio, fin, ...
-                   \* It would reduce the spec's state space and require
-                   \* fewer instructions in an implementation. 
-                   clm1:  h := head;
-                   clm2:  CAS(result, head, h, h + 1);
-                          if (result) {
-                             h := h + 1;
-                             with ( i \in SetOfRandomElement(2..3) ) {
-                                 (* set of successor states fits into    *)
-                                 (* page, thus no need to write page.    *)
-                                 (* Just get the next page of unexplored *)
-                                 (* states.                              *)
-                                 (* (Can lead to temporary livelock that *)
-                                 (* have to be and are resolved in wt1   *)
-                                 (* above!)                              *) 
-                                 either { await i \in 2..2; goto deq; } 
-                                 (* set of successor states does not fit *)
-                                 (* into page, thus write it.            *)
-                                     or { await i \in 3..3; goto wrt; };
-                             }
+                   head := head + 1;
+                   h := head;
+                   with ( i \in SetOfRandomElement(2..3) ) {
+                     (* set of successor states fits into    *)
+                     (* page, thus no need to write page.    *)
+                     (* Just get the next page of unexplored *)
+                     (* states.                              *)
+                     (* (Can lead to temporary livelock that *)
+                     (* have to be and are resolved in wt1   *)
+                     (* above!)                              *) 
+                     either { await i \in 2..2; goto deq; } 
+                     (* set of successor states does not fit *)
+                     (* into page, thus write it.            *)
+                         or { await i \in 3..3; goto wrt; };
+                   };
 \*                                 either { goto deq; } 
 \*                                     or { goto wrt; };
-                          } else {
-                              goto clm1;
-                          };
             
             (*************************************************************)
             (* Write page to disk. Intuitively, one would write the page *)
@@ -544,7 +533,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "3bbc05ee" /\ chksum(tla) = "2ba13c4d")
+\* BEGIN TRANSLATION (chksum(pcal) = "d2e9f700" /\ chksum(tla) = "37b4f05")
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -631,7 +620,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 279, column 20.")
+                                             "Failure of assertion at line 277, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
              /\ UNCHANGED << tail, disk, head, history, result, h >>
@@ -661,12 +650,12 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(h[self] = np /\ disk = {}, 
-                                             "Failure of assertion at line 315, column 24.")
+                                             "Failure of assertion at line 313, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF head = tail - Cardinality(Workers)
                                          THEN /\ Assert(h[self] = np, 
-                                                        "Failure of assertion at line 331, column 24.")
+                                                        "Failure of assertion at line 329, column 24.")
                                               /\ pc' = [pc EXCEPT ![self] = "casB"]
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF h[self] # np /\ h[self] = t[self]
@@ -702,14 +691,14 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 334, column 33.")
+                                   "Failure of assertion at line 332, column 33.")
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
               /\ UNCHANGED << disk, head, history, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 410, column 18.")
+                      "Failure of assertion at line 408, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = appendHistory(self, "deq", t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -741,31 +730,15 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 478, column 20.")
-               /\ pc' = [pc EXCEPT ![self] = "clm1"]
-               /\ UNCHANGED << tail, disk, head, history, result, t, h >>
-
-clm1(self) == /\ pc[self] = "clm1"
-              /\ h' = [h EXCEPT ![self] = head]
-              /\ pc' = [pc EXCEPT ![self] = "clm2"]
-              /\ UNCHANGED << tail, disk, head, history, result, t >>
-
-clm2(self) == /\ pc[self] = "clm2"
-              /\ IF head = h[self]
-                    THEN /\ head' = h[self] + 1
-                         /\ result' = [result EXCEPT ![self] = TRUE]
-                    ELSE /\ result' = [result EXCEPT ![self] = FALSE]
-                         /\ head' = head
-              /\ IF result'[self]
-                    THEN /\ h' = [h EXCEPT ![self] = h[self] + 1]
-                         /\ \E i \in SetOfRandomElement(2..3):
-                              \/ /\ i \in 2..2
-                                 /\ pc' = [pc EXCEPT ![self] = "deq"]
-                              \/ /\ i \in 3..3
-                                 /\ pc' = [pc EXCEPT ![self] = "wrt"]
-                    ELSE /\ pc' = [pc EXCEPT ![self] = "clm1"]
-                         /\ h' = h
-              /\ UNCHANGED << tail, disk, history, t >>
+                         "Failure of assertion at line 476, column 20.")
+               /\ head' = head + 1
+               /\ h' = [h EXCEPT ![self] = head']
+               /\ \E i \in SetOfRandomElement(2..3):
+                    \/ /\ i \in 2..2
+                       /\ pc' = [pc EXCEPT ![self] = "deq"]
+                    \/ /\ i \in 3..3
+                       /\ pc' = [pc EXCEPT ![self] = "wrt"]
+               /\ UNCHANGED << tail, disk, history, result, t >>
 
 wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = (disk \cup {h[self]})
@@ -796,8 +769,8 @@ retry(self) == /\ pc[self] = "retry"
 
 worker(self) == deq(self) \/ casA(self) \/ wt(self) \/ wt1(self)
                    \/ casB(self) \/ rd(self) \/ exp(self) \/ enq(self)
-                   \/ claim(self) \/ clm1(self) \/ clm2(self) \/ wrt(self)
-                   \/ violation(self) \/ retry(self)
+                   \/ claim(self) \/ wrt(self) \/ violation(self)
+                   \/ retry(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
