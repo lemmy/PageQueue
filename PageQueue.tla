@@ -211,6 +211,13 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                           /\ 1..Pages \subseteq Range(Reduce(history, "page"))
        }
        
+       macro Read(disk, page) {
+          disk := disk \ {page}
+       }    
+       macro Write(disk,page) {
+          disk := disk \cup {page}
+       }
+       
        (*******************************************************)
        (* Atomicity is implicit due to the absence of labels. *)      
        (*******************************************************)
@@ -347,7 +354,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                         \* 1. optimization:
                         \* Trivial live-lock of one worker with itself.
                         await IncrementStats(20, h);
-                        disk := disk \cup {h};
+                        Write(disk, h);
                         history := appendHistory(self, "enq", h);
                         h := np;
                         goto wt;
@@ -359,7 +366,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                         \* current page.  In other words, the workers waiting
                         \* for older pages do *not* release/return their pages.
                         await IncrementStats(21, h);
-                        disk := disk \cup {h};
+                        Write(disk, h);
                         history := appendHistory(self, "enq", h);
                         h := np;
                         goto wt;
@@ -398,7 +405,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                         (* queue, hence relaxed queue.                            *)
                         (**********************************************************)
                         await IncrementStats(22, h);
-                        disk := disk \cup {h};
+                        Write(disk, h);
                         history := appendHistory(self, "enq", h);
                         h := np;
                         goto wt;
@@ -411,7 +418,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
                     }
                  };
             rd:  assert t \in disk;
-                 disk := disk \ {t};
+                 Read(disk, t);
                  history := appendHistory(self, "deq", t);
                  
             (*****************************************************************)
@@ -502,7 +509,7 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
             (* first (wrt) before enqueueing it (enq). However, enq      *)
             (* determines the identifier (e.g. file-name) of the page.   *)
             (*************************************************************)
-            wrt: disk := disk \cup {h};
+            wrt: Write(disk, h);
                  history := appendHistory(self, "enq", h);
                  h := np;
                  with ( i \in SetOfRandomElement(2..3) ) {
