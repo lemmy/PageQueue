@@ -145,7 +145,11 @@ np  == CHOOSE np  : np  \notin Nat \cup {fin,vio}
            \* every state).  Consider re-defining the appendHistory operator
            \* in the model with appendHistory(p,o,h) == <<>>.  Note though, that
            \* the (safety) property WSafety will be violated because it depends
-           \* on the history.
+           \* on the history.  Alternatively, defining a view function that omits
+           \* the history variable achives the same result, while allowing WSafety
+           \* and TotalWork to be defined via history.  Both approaches yield the
+           \* same amount of distinct states for a model, thus, the view does not
+           \* change the set of reachable states defined by the actual algorithm.
            appendHistory(p,o,h) == history \o << Op(p, o, h) >>
            (*******************************************************************)
            (* The sequence of enqueued pages and dequeued pages respectively. *)
