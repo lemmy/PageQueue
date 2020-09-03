@@ -47,7 +47,7 @@ ASSUME /\ Workers # {}            (* At least one worker. *)
 \* - Amend behavior spec to initialize TLCSet registers:
 \* -- InitializeStats /\ Spec
 \* - Add PrintStats as Post Condition on TLC Options page of model
-\* - Re-define SetOfRandomElement and SetOfInitialDisks in model
+\* - Re-define SetOfRandomElement and SetOfInitialDisks in model (see below)
 
 SetOfRandomElement(S) == 
    S \* Redefine to {RandomElement(S)} in model for simulation. 
@@ -74,7 +74,7 @@ ASSUME Cardinality(Workers) < 20
 InitializeStats ==
    \* Registers 20..22 to keep statistics about the branches related to
    \* livelock detection & resolution/recovery.
-   \A n \in (20..22): TLCSet(n, [ i \in 1..Pages+10 |-> 0 ])
+   \A n \in (20..22): TLCSet(n, [ i \in 1..Pages+20 |-> 0 ])
 
 (****************************************************************************)
 (* Print the value of all registers/for all values in the range of w2i.     *)
@@ -95,6 +95,7 @@ PrintStats ==
 (* Get TLCDefer by downloading the TLA+ CommunityModules.jar from           *)
 (* http://modules.tlapl.us/ and adding it to TLC's classpath.               *)
 (****************************************************************************)
+\* IncrementStats could be defined as a CONSTANT operator and this def be moved elsewhere. 
 IncrementStats(n, i) == 
     TLCDefer(
          TLCSet(n, [ TLCGet(n) EXCEPT ![i] = @ + 1 ]))
@@ -793,6 +794,7 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 (***************************************************************************)
 TerminatingPrint ==
            /\ \A self \in ProcSet: pc[self] = "Done"
+           \* Could replace history variable with TLCExt!Trace operator.
            /\ Print(<<"Length: " \o ToString(TLCGet("level")), history>>, FALSE)
 
 -----------------------------------------------------------------------------
