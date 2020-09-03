@@ -799,6 +799,25 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 \* END TRANSLATION
 -----------------------------------------------------------------------------
 
+\* This is a preliminary/ad-hoc idea to model contention/coherence by disabling
+\* actions for a given time frame when they - at the semantical level - executed
+\* an expensive operation.  Requires to add a 'blocked' variable and the Read
+\* and Write macro and the exp label be amended with a sensible assignment to
+\* blocked.
+\*Tick ==  /\ blocked' = [ w \in Workers |-> 
+\*                               IF blocked[w] = 0 THEN 0 ELSE blocked[w] - 1 ]
+\*         /\ UNCHANGED <<disk, h, head, history, pc, result, t, tail>>
+\*
+\*NonBlockedWorkers == { w \in Workers: blocked[w] = 0 }
+\*
+\*NextBlocked == \/ (\E self \in NonBlockedWorkers: worker(self)) 
+\*               \/ Tick
+\*               \/ Terminating
+\*
+\*SpecBlocked == /\ Init /\ [][NextBlocked]_vars
+\*               /\ \A self \in Workers : WF_vars(worker(self))
+\*               /\ WF_blocked(Tick)
+
 (***************************************************************************)
 (* Definition override for Terminating to print the behavior's history     *)
 (* after all workers have terminated.                                      *)
