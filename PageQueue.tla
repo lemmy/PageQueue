@@ -799,6 +799,18 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 \* END TRANSLATION
 -----------------------------------------------------------------------------
 
+\* This is a clutch, because it is not robust against adding additional
+\* variables and omitting to add them to the ViewMap.  Meta-programming for
+\* TLA+ would be nice, so we could do something along the lines of:
+\* - SelectSeq(vars, LAMBDA e: VarName(e) # "history")
+\* It also doesn't work to move the history variable to the top of the spec
+\* to make the PlusCal translator generate vars == << history, ...>> and a
+\* - SubSeq(vars, 2, Len(vars)), because history is defined in terms of disk.
+\* Lastly, TLC fails to evaluate SelectSeq(vars, LAMBDA e: e # history)
+\* because it checks equality for the sequence history with non-seq elements
+\* in vars.  I guess, we just have to be diligent or suffer the consequences.
+ViewMap == << tail, disk, head, (*history,*) pc, result, t, h >>
+
 \* This is a preliminary/ad-hoc idea to model contention/coherence by disabling
 \* actions for a given time frame when they - at the semantical level - executed
 \* an expensive operation.  Requires to add a 'blocked' variable and the Read
