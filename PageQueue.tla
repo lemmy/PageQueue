@@ -233,7 +233,23 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
 
 
        fair process (ProcName = "main") 
-            variables terminated = FALSE; condition = FALSE; phaser = 0; tmp = tail; {
+            variables
+                  \* terminated and condition could, perhaps, both be merged into
+                  \* phaser and special (negative) values be used to represent
+                  \* terminated and condition.  This is outside the scope of this
+                  \* spec because an implementation will use a java.concurrent.Phaser.
+                  (* Signal set by workers if all work is done or a violation    *)
+                  (* has been found.                                             *)
+                  terminated = FALSE;
+                  (* Counts the number of arrived parties at the phaser.         *)
+                  (* suspension/main awaits phaser = Cardinality(Workers)        *)
+                  phaser = 0;
+                  (* Signal set by suspension/main to release workers after main *)
+                  (* has completed its work.                                     *)
+                  condition = FALSE;
+                  (* 1) Handle ABA problem of updating tail.                     *)
+                  (* 2) Hack discussed in comment about await tail # tmp below.  *)
+                  tmp = tail; {
             m0:  while (~terminated) {
                      m1: (* await tail # tmp rules out behaviors that indefinitely suspend *)
                          (* all workers without workers ever making (global) progress,     *)
@@ -572,7 +588,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "5b933bd8" /\ chksum(tla) = "15090d51")
+\* BEGIN TRANSLATION (chksum(pcal) = "92baaa04" /\ chksum(tla) = "22cb54b9")
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -636,9 +652,9 @@ WSafety ==
 
                /\ 1..Pages \subseteq Range(Reduce(history, "page"))
 
-VARIABLES terminated, condition, phaser, tmp, result, t, h
+VARIABLES terminated, phaser, condition, tmp, result, t, h
 
-vars == << tail, disk, head, history, pc, terminated, condition, phaser, tmp, 
+vars == << tail, disk, head, history, pc, terminated, phaser, condition, tmp, 
            result, t, h >>
 
 ProcSet == {"main"} \cup (Workers)
@@ -650,8 +666,8 @@ Init == (* Global variables *)
         /\ history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ]
         (* Process ProcName *)
         /\ terminated = FALSE
-        /\ condition = FALSE
         /\ phaser = 0
+        /\ condition = FALSE
         /\ tmp = tail
         (* Process worker *)
         /\ result = [self \in Workers |-> FALSE]
@@ -664,7 +680,7 @@ m0 == /\ pc["main"] = "m0"
       /\ IF ~terminated
             THEN /\ pc' = [pc EXCEPT !["main"] = "m1"]
             ELSE /\ pc' = [pc EXCEPT !["main"] = "Done"]
-      /\ UNCHANGED << tail, disk, head, history, terminated, condition, phaser, 
+      /\ UNCHANGED << tail, disk, head, history, terminated, phaser, condition, 
                       tmp, result, t, h >>
 
 m1 == /\ pc["main"] = "m1"
@@ -685,7 +701,7 @@ m2 == /\ pc["main"] = "m2"
                  /\ pc' = [pc EXCEPT !["main"] = "m3"]
             ELSE /\ pc' = [pc EXCEPT !["main"] = "m0"]
                  /\ tail' = tail
-      /\ UNCHANGED << disk, head, history, terminated, condition, phaser, tmp, 
+      /\ UNCHANGED << disk, head, history, terminated, phaser, condition, tmp, 
                       result, t, h >>
 
 m3 == /\ pc["main"] = "m3"
@@ -702,7 +718,7 @@ m4 == /\ pc["main"] = "m4"
       /\ TRUE
       /\ tail' = tmp
       /\ pc' = [pc EXCEPT !["main"] = "m5"]
-      /\ UNCHANGED << disk, head, history, terminated, condition, phaser, tmp, 
+      /\ UNCHANGED << disk, head, history, terminated, phaser, condition, tmp, 
                       result, t, h >>
 
 m5 == /\ pc["main"] = "m5"
@@ -719,13 +735,13 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 307, column 20.")
+                                             "Failure of assertion at line 318, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ IF t'[self] = sus
                                          THEN /\ pc' = [pc EXCEPT ![self] = "suspendedA"]
                                          ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
-             /\ UNCHANGED << tail, disk, head, history, terminated, condition, 
-                             phaser, tmp, result, h >>
+             /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
+                             condition, tmp, result, h >>
 
 suspendedA(self) == /\ pc[self] = "suspendedA"
                     /\ phaser' = phaser + 1
@@ -751,15 +767,15 @@ casA(self) == /\ pc[self] = "casA"
                          /\ pc' = [pc EXCEPT ![self] = "wt"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "deq"]
                          /\ t' = t
-              /\ UNCHANGED << disk, head, history, terminated, condition, 
-                              phaser, tmp, h >>
+              /\ UNCHANGED << disk, head, history, terminated, phaser, 
+                              condition, tmp, h >>
 
 wt(self) == /\ pc[self] = "wt"
             /\ IF t[self] \notin disk
                   THEN /\ pc' = [pc EXCEPT ![self] = "wt1"]
                   ELSE /\ pc' = [pc EXCEPT ![self] = "rd"]
-            /\ UNCHANGED << tail, disk, head, history, terminated, condition, 
-                            phaser, tmp, result, t, h >>
+            /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
+                            condition, tmp, result, t, h >>
 
 wt1(self) == /\ pc[self] = "wt1"
              /\ IF tail = vio
@@ -767,7 +783,7 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(h[self] = np /\ disk = {}, 
-                                             "Failure of assertion at line 344, column 24.")
+                                             "Failure of assertion at line 355, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF tail = sus
@@ -775,7 +791,7 @@ wt1(self) == /\ pc[self] = "wt1"
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF head = tail - Cardinality(Workers)
                                                     THEN /\ Assert(h[self] = np, 
-                                                                   "Failure of assertion at line 365, column 24.")
+                                                                   "Failure of assertion at line 376, column 24.")
                                                          /\ pc' = [pc EXCEPT ![self] = "casB"]
                                                          /\ UNCHANGED << disk, 
                                                                          history, 
@@ -803,7 +819,7 @@ wt1(self) == /\ pc[self] = "wt1"
                                                                                           /\ UNCHANGED << disk, 
                                                                                                           history, 
                                                                                                           h >>
-             /\ UNCHANGED << tail, head, terminated, condition, phaser, tmp, 
+             /\ UNCHANGED << tail, head, terminated, phaser, condition, tmp, 
                              result, t >>
 
 suspendedA1(self) == /\ pc[self] = "suspendedA1"
@@ -827,29 +843,29 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 368, column 33.")
+                                   "Failure of assertion at line 379, column 33.")
                          /\ terminated' = TRUE
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
                          /\ UNCHANGED terminated
-              /\ UNCHANGED << disk, head, history, condition, phaser, tmp, t, 
+              /\ UNCHANGED << disk, head, history, phaser, condition, tmp, t, 
                               h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 445, column 18.")
+                      "Failure of assertion at line 456, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = appendHistory(self, "deq", t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
-            /\ UNCHANGED << tail, head, terminated, condition, phaser, tmp, 
+            /\ UNCHANGED << tail, head, terminated, phaser, condition, tmp, 
                             result, t, h >>
 
 exp(self) == /\ pc[self] = "exp"
              /\ IF TotalWork(head, tail)
                    THEN /\ pc' = [pc EXCEPT ![self] = "deq"]
                    ELSE /\ pc' = [pc EXCEPT ![self] = "enq"]
-             /\ UNCHANGED << tail, disk, head, history, terminated, condition, 
-                             phaser, tmp, result, t, h >>
+             /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
+                             condition, tmp, result, t, h >>
 
 enq(self) == /\ pc[self] = "enq"
              /\ IF h[self] = np
@@ -867,12 +883,12 @@ enq(self) == /\ pc[self] = "enq"
                                         \/ /\ i \in 3..50
                                            /\ pc' = [pc EXCEPT ![self] = "wrt"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "claim"]
-             /\ UNCHANGED << tail, disk, head, history, terminated, condition, 
-                             phaser, tmp, result, t, h >>
+             /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
+                             condition, tmp, result, t, h >>
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 513, column 20.")
+                         "Failure of assertion at line 524, column 20.")
                /\ head' = head + 1
                /\ h' = [h EXCEPT ![self] = head']
                /\ \E i \in SetOfRandomElement(2..3):
@@ -880,8 +896,8 @@ claim(self) == /\ pc[self] = "claim"
                        /\ pc' = [pc EXCEPT ![self] = "deq"]
                     \/ /\ i \in 3..3
                        /\ pc' = [pc EXCEPT ![self] = "wrt"]
-               /\ UNCHANGED << tail, disk, history, terminated, condition, 
-                               phaser, tmp, result, t >>
+               /\ UNCHANGED << tail, disk, history, terminated, phaser, 
+                               condition, tmp, result, t >>
 
 wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = (disk \cup {h[self]})
@@ -892,7 +908,7 @@ wrt(self) == /\ pc[self] = "wrt"
                      /\ pc' = [pc EXCEPT ![self] = "deq"]
                   \/ /\ i \in 3..3
                      /\ pc' = [pc EXCEPT ![self] = "exp"]
-             /\ UNCHANGED << tail, head, terminated, condition, phaser, tmp, 
+             /\ UNCHANGED << tail, head, terminated, phaser, condition, tmp, 
                              result, t >>
 
 violation(self) == /\ pc[self] = "violation"
@@ -906,14 +922,14 @@ violation(self) == /\ pc[self] = "violation"
                               /\ pc' = [pc EXCEPT ![self] = "Done"]
                          ELSE /\ pc' = [pc EXCEPT ![self] = "retry"]
                               /\ UNCHANGED terminated
-                   /\ UNCHANGED << disk, head, history, condition, phaser, tmp, 
+                   /\ UNCHANGED << disk, head, history, phaser, condition, tmp, 
                                    t, h >>
 
 retry(self) == /\ pc[self] = "retry"
                /\ t' = [t EXCEPT ![self] = tail]
                /\ pc' = [pc EXCEPT ![self] = "violation"]
-               /\ UNCHANGED << tail, disk, head, history, terminated, 
-                               condition, phaser, tmp, result, h >>
+               /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
+                               condition, tmp, result, h >>
 
 worker(self) == deq(self) \/ suspendedA(self) \/ suspendedB(self)
                    \/ casA(self) \/ wt(self) \/ wt1(self)
