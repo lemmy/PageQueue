@@ -928,11 +928,28 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 \* It also doesn't work to move the history variable to the top of the spec
 \* to make the PlusCal translator generate vars == << history, ...>> and a
 \* - SubSeq(vars, 2, Len(vars)), because history is defined in terms of disk.
+\* We can't move history to the end, because the worker local variables are
+\* generated after the global variables.
 \* Lastly, TLC fails to evaluate SelectSeq(vars, LAMBDA e: e # history)
 \* because it checks equality for the sequence history with non-seq elements
 \* in vars.  I guess, we just have to be diligent or suffer the consequences.
 ViewMap == 
-  << tail, disk, head, (*history,*) pc, result, t, h, terminated, phaser, tmp >>
+  << tail, disk, head, (*history,*) pc, result, t, h, terminated, condition, phaser, tmp >>
+
+\* At the expense of checking this invariant for *every* state (ViewMapOK cannot
+\* be an ASSUME because it is state- and not constant-level), we can reliably
+\* be warned if we forget to update the ViewMap when variables are added.
+ViewMapOK == Len(ViewMap) = Len(vars) - 1
+
+\* Doesn't work because equality for most values of variables undefined.
+\*ViewMapOK == Range(ViewMap) = Range(vars) \ {history}
+
+\* Spec /\ Assert(...) works and has the least trade-offs (only evaluated for the
+\* initial states as part of the init predicate.
+ViewSpec == 
+        /\ Spec
+        \* Only check the assert once after the initial states have been generated.
+        /\ Assert(ViewMapOK, "view map is missing variables.")
 
 \* This is a preliminary/ad-hoc idea to model contention/coherence by disabling
 \* actions for a given time frame when they - at the semantical level - executed
