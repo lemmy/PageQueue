@@ -235,7 +235,23 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
        fair process (ProcName = "main") 
             variables terminated = FALSE; condition = FALSE; phaser = 0; tmp = tail; {
             m0:  while (~terminated) {
-                     m1: await tail # tmp;
+                     m1: (* await tail # tmp rules out behaviors that indefinitely suspend *)
+                         (* all workers without workers ever making (global) progress,     *)
+                         (* which violates the liveness property Termination.              *)
+                         (* An alternative would, perhaps, be to state an involed fairness *)
+                         (* property for m1 that enables the action when tail changes.     *)
+                         (* However, that would leave m1 disabled even after all workers   *)
+                         (* have terminated causing suspension to stutter indefinitely.    *)
+                         (* In other words, we would have to come up with a fairness       *)
+                         (* constraint that takes the value of the worker's pc variables   *)
+                         (* into account, which would result in a non-machine closed spec. *)
+                         (* The whole issue is more or less theoretical anyway.  An        *)
+                         (* implementation will suspend based on a periodic timer that -   *)
+                         (* by default - is set to make it highly unlikely that workers    *)
+                         (* won't make any progress.  Termination of suspension is         *)
+                         (* guaranteed by the runtime iff suspension/main is configured to *)
+                         (* be a daemon thread.                                            *)  
+                         await tail # tmp;
                          await phaser = 0;
                          condition := FALSE;
                          tmp := tail;
@@ -259,6 +275,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
                          };
                          (* Do main thread things and set tail back to t. *)
                      m4: skip;
+                         (* See comment about await tail # tmp above. *)
                          tail := tmp;
                          (* Resume workers. *)
                          (* Phaser#arriveAndAwaitAdvance *)
@@ -555,7 +572,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "5b933bd8" /\ chksum(tla) = "a7d19f49")
+\* BEGIN TRANSLATION (chksum(pcal) = "5b933bd8" /\ chksum(tla) = "15090d51")
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
@@ -702,7 +719,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 291, column 20.")
+                                             "Failure of assertion at line 307, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ IF t'[self] = sus
                                          THEN /\ pc' = [pc EXCEPT ![self] = "suspendedA"]
@@ -750,7 +767,7 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(h[self] = np /\ disk = {}, 
-                                             "Failure of assertion at line 328, column 24.")
+                                             "Failure of assertion at line 344, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF tail = sus
@@ -758,7 +775,7 @@ wt1(self) == /\ pc[self] = "wt1"
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF head = tail - Cardinality(Workers)
                                                     THEN /\ Assert(h[self] = np, 
-                                                                   "Failure of assertion at line 349, column 24.")
+                                                                   "Failure of assertion at line 365, column 24.")
                                                          /\ pc' = [pc EXCEPT ![self] = "casB"]
                                                          /\ UNCHANGED << disk, 
                                                                          history, 
@@ -810,7 +827,7 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 352, column 33.")
+                                   "Failure of assertion at line 368, column 33.")
                          /\ terminated' = TRUE
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
@@ -820,7 +837,7 @@ casB(self) == /\ pc[self] = "casB"
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 429, column 18.")
+                      "Failure of assertion at line 445, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ history' = appendHistory(self, "deq", t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
@@ -855,7 +872,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 497, column 20.")
+                         "Failure of assertion at line 513, column 20.")
                /\ head' = head + 1
                /\ h' = [h EXCEPT ![self] = head']
                /\ \E i \in SetOfRandomElement(2..3):
