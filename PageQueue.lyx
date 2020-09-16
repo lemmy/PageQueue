@@ -4810,6 +4810,21 @@ literal "false"
 
 \end_layout
 
+\begin_deeper
+\begin_layout Itemize
+Nice idea (also explored in 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Kuppe2017a"
+literal "false"
+
+\end_inset
+
+) with the fundamental drawback that the odds are low for small state spaces
+ to find the shortest error-trace.
+\end_layout
+
+\end_deeper
 \begin_layout Itemize
 \begin_inset CommandInset citation
 LatexCommand citep
@@ -4883,6 +4898,24 @@ asdf
 \end_layout
 
 \end_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Milman2018"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+We can see the tail and head counters as futures that promise a thread to
+ eventually get a value (page)
+\end_layout
+
+\end_deeper
 \end_deeper
 \begin_layout Itemize
 Relaxed data-structures to scale vertically (none seem to take persistence
@@ -4890,6 +4923,27 @@ Relaxed data-structures to scale vertically (none seem to take persistence
 \end_layout
 
 \begin_deeper
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Basin2011"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+A linked-list where each node is a tree of items.
+ get operations on the tree do not provide fifo semantics.
+ The maximum height of trees determines the relaxation of the strict fifo
+ order imposed by the linked list (trees with height zero/one) result in
+ strict fifo semantics.
+\end_layout
+
+\end_deeper
 \begin_layout Itemize
 \begin_inset CommandInset citation
 LatexCommand citep
