@@ -138,26 +138,10 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
          (* Auxiliary/History variable to check properties. Initialized to    *)
          (* match disk.                                                       *)
          (*********************************************************************)
-         history = [ i \in 1..Cardinality(disk) |-> Op("enq", i) ];
+         enqHistory = 1..Cardinality(disk);
+         deqHistory = {};
        
        define {
-           \* Maintaining the history is super expensive because it is an ever-
-           \* growing sequence of operations (that has to be fingerprinted for
-           \* every state).  Consider re-defining the appendHistory operator
-           \* in the model with appendHistory(p,o,h) == <<>>.  Note though, that
-           \* the (safety) property WSafety will be violated because it depends
-           \* on the history.  Alternatively, defining a view function that omits
-           \* the history variable achives the same result, while allowing WSafety
-           \* and TotalWork to be defined via history.  Both approaches yield the
-           \* same amount of distinct states for a model, thus, the view does not
-           \* change the set of reachable states defined by the actual algorithm.
-           appendHistory(o,h) == history \o << Op(o, h) >>
-           (*******************************************************************)
-           (* The sequence of enqueued pages and dequeued pages respectively. *)
-           (*******************************************************************)
-           Enqueued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"), "page")
-           Dequeued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"), "page")
-       
            (*****************************************************************)
            (* Make state space explicitly finite (see enq) instead of       *)
            (* with a state constraint that interfers with liveness checking.*)
@@ -185,12 +169,6 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
            (* all work is either done or a violation has been found.           *)
            (********************************************************************)
            WSafety == 
-                   (**********************************************************)
-                   (* Neither the enqueued operations nor the dequeued pages *)
-                   (* ever contain duplicates.                               *)
-                   (**********************************************************)
-                   /\ IsInjective(Enqueued)
-                   /\ IsInjective(Dequeued)
                    (*************************************************************)
                    (* After termination a worker either found a violation (vio) *)
                    (* or a worker signalied finish (fin) in which case all      *)
@@ -203,22 +181,22 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
                           (************************************************************)
                           (* Any enq'ed page has also been deq'ed.                    *)
                           (************************************************************)
-                          /\ Range(Enqueued) = Range(Dequeued)
-                          (************************************************************)
-                          (* Due to the way how we made the state space of the spec   *)
-                          (* finite, admissible behaviors can create more pages. I'm  *)
-                          (* too lazy to find the actual bound.                       *)
-                          (************************************************************)
-                          /\ 1..Pages \subseteq Range(Reduce(history, "page"))
+                          /\ enqHistory = deqHistory
        }
        
        macro Read(disk, page) {
           disk := disk \ {page};
-          history := appendHistory("deq", t);
+          
+          \* correctness/history
+          assert page \notin deqHistory;
+          deqHistory := deqHistory \cup {page};
        }    
        macro Write(disk,page) {
           disk := disk \cup {page};
-          history := appendHistory("enq", h);
+          
+          \* correctness/history
+          assert page \notin enqHistory;
+          enqHistory := enqHistory \cup {page};
        }
        
        (*******************************************************)
@@ -585,26 +563,10 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "b7bb3e7" /\ chksum(tla) = "d0003704")
-VARIABLES tail, disk, head, history, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "7d7ae302" /\ chksum(tla) = "79f27a1")
+VARIABLES tail, disk, head, enqHistory, deqHistory, pc
 
 (* define statement *)
-appendHistory(o,h) == history \o << Op(o, h) >>
-
-
-
-Enqueued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="enq"), "page")
-Dequeued == Reduce(SelectSeq(history, LAMBDA e : e["oper"]="deq"), "page")
-
-
-
-
-
-
-
-
-
-
 TotalWork(h,t) == h > Pages
 
 
@@ -627,12 +589,6 @@ WSafety ==
 
 
 
-        /\ IsInjective(Enqueued)
-        /\ IsInjective(Dequeued)
-
-
-
-
 
         /\ (\A p \in Workers : pc[p] = "Done") =>
             \/ tail = vio
@@ -641,18 +597,12 @@ WSafety ==
 
 
 
-               /\ Range(Enqueued) = Range(Dequeued)
-
-
-
-
-
-               /\ 1..Pages \subseteq Range(Reduce(history, "page"))
+               /\ enqHistory = deqHistory
 
 VARIABLES terminated, phaser, condition, tmp, result, t, h
 
-vars == << tail, disk, head, history, pc, terminated, phaser, condition, tmp, 
-           result, t, h >>
+vars == << tail, disk, head, enqHistory, deqHistory, pc, terminated, phaser, 
+           condition, tmp, result, t, h >>
 
 ProcSet == {"main"} \cup (Workers)
 
@@ -660,7 +610,8 @@ Init == (* Global variables *)
         /\ tail = 0
         /\ disk \in SetOfInitialDisks
         /\ head = Max(disk)
-        /\ history = [ i \in 1..Cardinality(disk) |-> Op("enq", i) ]
+        /\ enqHistory = 1..Cardinality(disk)
+        /\ deqHistory = {}
         (* Process ProcName *)
         /\ terminated = FALSE
         /\ phaser = 0
@@ -677,8 +628,8 @@ m0 == /\ pc["main"] = "m0"
       /\ IF ~terminated
             THEN /\ pc' = [pc EXCEPT !["main"] = "m1"]
             ELSE /\ pc' = [pc EXCEPT !["main"] = "Done"]
-      /\ UNCHANGED << tail, disk, head, history, terminated, phaser, condition, 
-                      tmp, result, t, h >>
+      /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, terminated, 
+                      phaser, condition, tmp, result, t, h >>
 
 m1 == /\ pc["main"] = "m1"
       /\ tail # tmp
@@ -690,7 +641,8 @@ m1 == /\ pc["main"] = "m1"
                  /\ pc' = [pc EXCEPT !["main"] = "Done"]
             ELSE /\ pc' = [pc EXCEPT !["main"] = "m2"]
                  /\ tail' = tail
-      /\ UNCHANGED << disk, head, history, terminated, phaser, result, t, h >>
+      /\ UNCHANGED << disk, head, enqHistory, deqHistory, terminated, phaser, 
+                      result, t, h >>
 
 m2 == /\ pc["main"] = "m2"
       /\ IF tail = tmp
@@ -698,8 +650,8 @@ m2 == /\ pc["main"] = "m2"
                  /\ pc' = [pc EXCEPT !["main"] = "m3"]
             ELSE /\ pc' = [pc EXCEPT !["main"] = "m0"]
                  /\ tail' = tail
-      /\ UNCHANGED << disk, head, history, terminated, phaser, condition, tmp, 
-                      result, t, h >>
+      /\ UNCHANGED << disk, head, enqHistory, deqHistory, terminated, phaser, 
+                      condition, tmp, result, t, h >>
 
 m3 == /\ pc["main"] = "m3"
       /\ phaser = Cardinality(Workers) \/ terminated
@@ -708,21 +660,21 @@ m3 == /\ pc["main"] = "m3"
                  /\ pc' = [pc EXCEPT !["main"] = "Done"]
             ELSE /\ pc' = [pc EXCEPT !["main"] = "m4"]
                  /\ UNCHANGED condition
-      /\ UNCHANGED << tail, disk, head, history, terminated, phaser, tmp, 
-                      result, t, h >>
+      /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, terminated, 
+                      phaser, tmp, result, t, h >>
 
 m4 == /\ pc["main"] = "m4"
       /\ TRUE
       /\ tail' = tmp
       /\ pc' = [pc EXCEPT !["main"] = "m5"]
-      /\ UNCHANGED << disk, head, history, terminated, phaser, condition, tmp, 
-                      result, t, h >>
+      /\ UNCHANGED << disk, head, enqHistory, deqHistory, terminated, phaser, 
+                      condition, tmp, result, t, h >>
 
 m5 == /\ pc["main"] = "m5"
       /\ condition' = TRUE
       /\ pc' = [pc EXCEPT !["main"] = "m0"]
-      /\ UNCHANGED << tail, disk, head, history, terminated, phaser, tmp, 
-                      result, t, h >>
+      /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, terminated, 
+                      phaser, tmp, result, t, h >>
 
 ProcName == m0 \/ m1 \/ m2 \/ m3 \/ m4 \/ m5
 
@@ -732,26 +684,26 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 326, column 20.")
+                                             "Failure of assertion at line 304, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ IF t'[self] = sus
                                          THEN /\ pc' = [pc EXCEPT ![self] = "suspendedA"]
                                          ELSE /\ pc' = [pc EXCEPT ![self] = "casA"]
-             /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
-                             condition, tmp, result, h >>
+             /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, 
+                             terminated, phaser, condition, tmp, result, h >>
 
 suspendedA(self) == /\ pc[self] = "suspendedA"
                     /\ phaser' = phaser + 1
                     /\ pc' = [pc EXCEPT ![self] = "suspendedB"]
-                    /\ UNCHANGED << tail, disk, head, history, terminated, 
-                                    condition, tmp, result, t, h >>
+                    /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, 
+                                    terminated, condition, tmp, result, t, h >>
 
 suspendedB(self) == /\ pc[self] = "suspendedB"
                     /\ condition \/ terminated
                     /\ phaser' = phaser - 1
                     /\ pc' = [pc EXCEPT ![self] = "deq"]
-                    /\ UNCHANGED << tail, disk, head, history, terminated, 
-                                    condition, tmp, result, t, h >>
+                    /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, 
+                                    terminated, condition, tmp, result, t, h >>
 
 casA(self) == /\ pc[self] = "casA"
               /\ IF tail = t[self]
@@ -764,73 +716,80 @@ casA(self) == /\ pc[self] = "casA"
                          /\ pc' = [pc EXCEPT ![self] = "wt"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "deq"]
                          /\ t' = t
-              /\ UNCHANGED << disk, head, history, terminated, phaser, 
-                              condition, tmp, h >>
+              /\ UNCHANGED << disk, head, enqHistory, deqHistory, terminated, 
+                              phaser, condition, tmp, h >>
 
 wt(self) == /\ pc[self] = "wt"
             /\ IF t[self] \notin disk
                   THEN /\ pc' = [pc EXCEPT ![self] = "wt1"]
                   ELSE /\ pc' = [pc EXCEPT ![self] = "rd"]
-            /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
-                            condition, tmp, result, t, h >>
+            /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, 
+                            terminated, phaser, condition, tmp, result, t, h >>
 
 wt1(self) == /\ pc[self] = "wt1"
              /\ IF tail = vio
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
-                        /\ UNCHANGED << disk, history, h >>
+                        /\ UNCHANGED << disk, enqHistory, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(h[self] = np /\ disk = {}, 
-                                             "Failure of assertion at line 363, column 24.")
+                                             "Failure of assertion at line 341, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
-                                   /\ UNCHANGED << disk, history, h >>
+                                   /\ UNCHANGED << disk, enqHistory, h >>
                               ELSE /\ IF tail = sus
                                          THEN /\ pc' = [pc EXCEPT ![self] = "suspendedA1"]
-                                              /\ UNCHANGED << disk, history, h >>
+                                              /\ UNCHANGED << disk, enqHistory, 
+                                                              h >>
                                          ELSE /\ IF head = tail - Cardinality(Workers)
                                                     THEN /\ Assert(h[self] = np, 
-                                                                   "Failure of assertion at line 384, column 24.")
+                                                                   "Failure of assertion at line 362, column 24.")
                                                          /\ pc' = [pc EXCEPT ![self] = "casB"]
                                                          /\ UNCHANGED << disk, 
-                                                                         history, 
+                                                                         enqHistory, 
                                                                          h >>
                                                     ELSE /\ IF h[self] # np /\ h[self] = t[self]
                                                                THEN /\ IncrementStats(20, h[self])
                                                                     /\ disk' = (disk \cup {h[self]})
-                                                                    /\ history' = appendHistory("enq", h[self])
+                                                                    /\ Assert(h[self] \notin enqHistory, 
+                                                                              "Failure of assertion at line 198, column 11 of macro called at line 379, column 25.")
+                                                                    /\ enqHistory' = (enqHistory \cup {h[self]})
                                                                     /\ h' = [h EXCEPT ![self] = np]
                                                                     /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                                ELSE /\ IF h[self] # np /\ h[self] > t[self]
                                                                           THEN /\ IncrementStats(21, h[self])
                                                                                /\ disk' = (disk \cup {h[self]})
-                                                                               /\ history' = appendHistory("enq", h[self])
+                                                                               /\ Assert(h[self] \notin enqHistory, 
+                                                                                         "Failure of assertion at line 198, column 11 of macro called at line 390, column 25.")
+                                                                               /\ enqHistory' = (enqHistory \cup {h[self]})
                                                                                /\ h' = [h EXCEPT ![self] = np]
                                                                                /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                                           ELSE /\ IF h[self] # np /\ h[self] < t[self] /\ head <= tail
                                                                                      THEN /\ IncrementStats(22, h[self])
                                                                                           /\ disk' = (disk \cup {h[self]})
-                                                                                          /\ history' = appendHistory("enq", h[self])
+                                                                                          /\ Assert(h[self] \notin enqHistory, 
+                                                                                                    "Failure of assertion at line 198, column 11 of macro called at line 428, column 25.")
+                                                                                          /\ enqHistory' = (enqHistory \cup {h[self]})
                                                                                           /\ h' = [h EXCEPT ![self] = np]
                                                                                           /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                                                      ELSE /\ TRUE
                                                                                           /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                                                           /\ UNCHANGED << disk, 
-                                                                                                          history, 
+                                                                                                          enqHistory, 
                                                                                                           h >>
-             /\ UNCHANGED << tail, head, terminated, phaser, condition, tmp, 
-                             result, t >>
+             /\ UNCHANGED << tail, head, deqHistory, terminated, phaser, 
+                             condition, tmp, result, t >>
 
 suspendedA1(self) == /\ pc[self] = "suspendedA1"
                      /\ phaser' = phaser + 1
                      /\ pc' = [pc EXCEPT ![self] = "suspendedB1"]
-                     /\ UNCHANGED << tail, disk, head, history, terminated, 
-                                     condition, tmp, result, t, h >>
+                     /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, 
+                                     terminated, condition, tmp, result, t, h >>
 
 suspendedB1(self) == /\ pc[self] = "suspendedB1"
                      /\ condition \/ terminated
                      /\ phaser' = phaser - 1
                      /\ pc' = [pc EXCEPT ![self] = "wt"]
-                     /\ UNCHANGED << tail, disk, head, history, terminated, 
-                                     condition, tmp, result, t, h >>
+                     /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, 
+                                     terminated, condition, tmp, result, t, h >>
 
 casB(self) == /\ pc[self] = "casB"
               /\ IF tail = t[self]
@@ -840,29 +799,31 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 387, column 33.")
+                                   "Failure of assertion at line 365, column 33.")
                          /\ terminated' = TRUE
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
                          /\ UNCHANGED terminated
-              /\ UNCHANGED << disk, head, history, phaser, condition, tmp, t, 
-                              h >>
+              /\ UNCHANGED << disk, head, enqHistory, deqHistory, phaser, 
+                              condition, tmp, t, h >>
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 461, column 18.")
+                      "Failure of assertion at line 439, column 18.")
             /\ disk' = disk \ {t[self]}
-            /\ history' = appendHistory("deq", t[self])
+            /\ Assert(t[self] \notin deqHistory, 
+                      "Failure of assertion at line 191, column 11 of macro called at line 440, column 18.")
+            /\ deqHistory' = (deqHistory \cup {t[self]})
             /\ pc' = [pc EXCEPT ![self] = "exp"]
-            /\ UNCHANGED << tail, head, terminated, phaser, condition, tmp, 
-                            result, t, h >>
+            /\ UNCHANGED << tail, head, enqHistory, terminated, phaser, 
+                            condition, tmp, result, t, h >>
 
 exp(self) == /\ pc[self] = "exp"
              /\ IF TotalWork(head, tail)
                    THEN /\ pc' = [pc EXCEPT ![self] = "deq"]
                    ELSE /\ pc' = [pc EXCEPT ![self] = "enq"]
-             /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
-                             condition, tmp, result, t, h >>
+             /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, 
+                             terminated, phaser, condition, tmp, result, t, h >>
 
 enq(self) == /\ pc[self] = "enq"
              /\ IF h[self] = np
@@ -880,12 +841,12 @@ enq(self) == /\ pc[self] = "enq"
                                         \/ /\ i \in 3..50
                                            /\ pc' = [pc EXCEPT ![self] = "wrt"]
                               ELSE /\ pc' = [pc EXCEPT ![self] = "claim"]
-             /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
-                             condition, tmp, result, t, h >>
+             /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, 
+                             terminated, phaser, condition, tmp, result, t, h >>
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 528, column 20.")
+                         "Failure of assertion at line 506, column 20.")
                /\ head' = head + 1
                /\ h' = [h EXCEPT ![self] = head']
                /\ \E i \in SetOfRandomElement(2..3):
@@ -893,20 +854,22 @@ claim(self) == /\ pc[self] = "claim"
                        /\ pc' = [pc EXCEPT ![self] = "deq"]
                     \/ /\ i \in 3..3
                        /\ pc' = [pc EXCEPT ![self] = "wrt"]
-               /\ UNCHANGED << tail, disk, history, terminated, phaser, 
-                               condition, tmp, result, t >>
+               /\ UNCHANGED << tail, disk, enqHistory, deqHistory, terminated, 
+                               phaser, condition, tmp, result, t >>
 
 wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = (disk \cup {h[self]})
-             /\ history' = appendHistory("enq", h[self])
+             /\ Assert(h[self] \notin enqHistory, 
+                       "Failure of assertion at line 198, column 11 of macro called at line 530, column 18.")
+             /\ enqHistory' = (enqHistory \cup {h[self]})
              /\ h' = [h EXCEPT ![self] = np]
              /\ \E i \in SetOfRandomElement(2..3):
                   \/ /\ i \in 2..2
                      /\ pc' = [pc EXCEPT ![self] = "deq"]
                   \/ /\ i \in 3..3
                      /\ pc' = [pc EXCEPT ![self] = "exp"]
-             /\ UNCHANGED << tail, head, terminated, phaser, condition, tmp, 
-                             result, t >>
+             /\ UNCHANGED << tail, head, deqHistory, terminated, phaser, 
+                             condition, tmp, result, t >>
 
 violation(self) == /\ pc[self] = "violation"
                    /\ IF tail = t[self]
@@ -919,14 +882,14 @@ violation(self) == /\ pc[self] = "violation"
                               /\ pc' = [pc EXCEPT ![self] = "Done"]
                          ELSE /\ pc' = [pc EXCEPT ![self] = "retry"]
                               /\ UNCHANGED terminated
-                   /\ UNCHANGED << disk, head, history, phaser, condition, tmp, 
-                                   t, h >>
+                   /\ UNCHANGED << disk, head, enqHistory, deqHistory, phaser, 
+                                   condition, tmp, t, h >>
 
 retry(self) == /\ pc[self] = "retry"
                /\ t' = [t EXCEPT ![self] = tail]
                /\ pc' = [pc EXCEPT ![self] = "violation"]
-               /\ UNCHANGED << tail, disk, head, history, terminated, phaser, 
-                               condition, tmp, result, h >>
+               /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, 
+                               terminated, phaser, condition, tmp, result, h >>
 
 worker(self) == deq(self) \/ suspendedA(self) \/ suspendedB(self)
                    \/ casA(self) \/ wt(self) \/ wt1(self)
@@ -1007,7 +970,8 @@ ViewSpec ==
 TerminatingPrint ==
            /\ \A self \in ProcSet: pc[self] = "Done"
            \* Could replace history variable with TLCExt!Trace operator.
-           /\ Print(<<"Length: " \o ToString(TLCGet("level")), history>>, FALSE)
+           /\ Print(<<"Length: " \o ToString(TLCGet("level")), 
+                                         enqHistory \cup deqHistory>>, FALSE)
 
 -----------------------------------------------------------------------------
 
