@@ -22,7 +22,7 @@ Reduce(seq, i) == [ idx \in 1..Len(seq) |-> seq[idx][i] ]
 (*******************************************************************)
 (* A record representing a logical queue operation                 *)
 (*******************************************************************)
-Op(t, o, p) == [ thread |-> t, oper |-> o, page |-> p ]
+Op(o, p) == [ oper |-> o, page |-> p ]
 
 -----------------------------------------------------------------------------
 
@@ -138,7 +138,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
          (* Auxiliary/History variable to check properties. Initialized to    *)
          (* match disk.                                                       *)
          (*********************************************************************)
-         history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ];
+         history = [ i \in 1..Cardinality(disk) |-> Op("enq", i) ];
        
        define {
            \* Maintaining the history is super expensive because it is an ever-
@@ -151,7 +151,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
            \* and TotalWork to be defined via history.  Both approaches yield the
            \* same amount of distinct states for a model, thus, the view does not
            \* change the set of reachable states defined by the actual algorithm.
-           appendHistory(p,o,h) == history \o << Op(p, o, h) >>
+           appendHistory(o,h) == history \o << Op(o, h) >>
            (*******************************************************************)
            (* The sequence of enqueued pages and dequeued pages respectively. *)
            (*******************************************************************)
@@ -397,7 +397,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
                         \* Trivial live-lock of one worker with itself.
                         await IncrementStats(20, h);
                         Write(disk, h);
-                        history := appendHistory(self, "enq", h);
+                        history := appendHistory("enq", h);
                         h := np;
                         goto wt;
                     } else if (h # np /\ h > t) {
@@ -409,7 +409,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
                         \* for older pages do *not* release/return their pages.
                         await IncrementStats(21, h);
                         Write(disk, h);
-                        history := appendHistory(self, "enq", h);
+                        history := appendHistory("enq", h);
                         h := np;
                         goto wt;
                     } else if (h # np /\ h < t /\ head <= tail) {
@@ -448,7 +448,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
                         (**********************************************************)
                         await IncrementStats(22, h);
                         Write(disk, h);
-                        history := appendHistory(self, "enq", h);
+                        history := appendHistory("enq", h);
                         h := np;
                         goto wt;
                     } else {
@@ -461,7 +461,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
                  };
             rd:  assert t \in disk;
                  Read(disk, t);
-                 history := appendHistory(self, "deq", t);
+                 history := appendHistory("deq", t);
                  
             (*****************************************************************)
             (* 2. Stage:  Evaluate spec's next-state relation.               *)
@@ -552,7 +552,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
             (* determines the identifier (e.g. file-name) of the page.   *)
             (*************************************************************)
             wrt: Write(disk, h);
-                 history := appendHistory(self, "enq", h);
+                 history := appendHistory("enq", h);
                  h := np;
                  with ( i \in SetOfRandomElement(2..3) ) {
                       (* With the current page written and done, either  *)
@@ -588,11 +588,11 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "92baaa04" /\ chksum(tla) = "22cb54b9")
+\* BEGIN TRANSLATION (chksum(pcal) = "5f17f1ef" /\ chksum(tla) = "4e165011")
 VARIABLES tail, disk, head, history, pc
 
 (* define statement *)
-appendHistory(p,o,h) == history \o << Op(p, o, h) >>
+appendHistory(o,h) == history \o << Op(o, h) >>
 
 
 
@@ -663,7 +663,7 @@ Init == (* Global variables *)
         /\ tail = 0
         /\ disk \in SetOfInitialDisks
         /\ head = Max(disk)
-        /\ history = [ i \in 1..Cardinality(disk) |-> Op("init", "enq", i) ]
+        /\ history = [ i \in 1..Cardinality(disk) |-> Op("enq", i) ]
         (* Process ProcName *)
         /\ terminated = FALSE
         /\ phaser = 0
@@ -735,7 +735,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 318, column 20.")
+                                             "Failure of assertion at line 324, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ IF t'[self] = sus
                                          THEN /\ pc' = [pc EXCEPT ![self] = "suspendedA"]
@@ -783,7 +783,7 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, history, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(h[self] = np /\ disk = {}, 
-                                             "Failure of assertion at line 355, column 24.")
+                                             "Failure of assertion at line 361, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, history, h >>
                               ELSE /\ IF tail = sus
@@ -791,7 +791,7 @@ wt1(self) == /\ pc[self] = "wt1"
                                               /\ UNCHANGED << disk, history, h >>
                                          ELSE /\ IF head = tail - Cardinality(Workers)
                                                     THEN /\ Assert(h[self] = np, 
-                                                                   "Failure of assertion at line 376, column 24.")
+                                                                   "Failure of assertion at line 382, column 24.")
                                                          /\ pc' = [pc EXCEPT ![self] = "casB"]
                                                          /\ UNCHANGED << disk, 
                                                                          history, 
@@ -799,19 +799,19 @@ wt1(self) == /\ pc[self] = "wt1"
                                                     ELSE /\ IF h[self] # np /\ h[self] = t[self]
                                                                THEN /\ IncrementStats(20, h[self])
                                                                     /\ disk' = (disk \cup {h[self]})
-                                                                    /\ history' = appendHistory(self, "enq", h[self])
+                                                                    /\ history' = appendHistory("enq", h[self])
                                                                     /\ h' = [h EXCEPT ![self] = np]
                                                                     /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                                ELSE /\ IF h[self] # np /\ h[self] > t[self]
                                                                           THEN /\ IncrementStats(21, h[self])
                                                                                /\ disk' = (disk \cup {h[self]})
-                                                                               /\ history' = appendHistory(self, "enq", h[self])
+                                                                               /\ history' = appendHistory("enq", h[self])
                                                                                /\ h' = [h EXCEPT ![self] = np]
                                                                                /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                                           ELSE /\ IF h[self] # np /\ h[self] < t[self] /\ head <= tail
                                                                                      THEN /\ IncrementStats(22, h[self])
                                                                                           /\ disk' = (disk \cup {h[self]})
-                                                                                          /\ history' = appendHistory(self, "enq", h[self])
+                                                                                          /\ history' = appendHistory("enq", h[self])
                                                                                           /\ h' = [h EXCEPT ![self] = np]
                                                                                           /\ pc' = [pc EXCEPT ![self] = "wt"]
                                                                                      ELSE /\ TRUE
@@ -843,7 +843,7 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 379, column 33.")
+                                   "Failure of assertion at line 385, column 33.")
                          /\ terminated' = TRUE
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
@@ -853,9 +853,9 @@ casB(self) == /\ pc[self] = "casB"
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 456, column 18.")
+                      "Failure of assertion at line 462, column 18.")
             /\ disk' = disk \ {t[self]}
-            /\ history' = appendHistory(self, "deq", t[self])
+            /\ history' = appendHistory("deq", t[self])
             /\ pc' = [pc EXCEPT ![self] = "exp"]
             /\ UNCHANGED << tail, head, terminated, phaser, condition, tmp, 
                             result, t, h >>
@@ -888,7 +888,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 524, column 20.")
+                         "Failure of assertion at line 530, column 20.")
                /\ head' = head + 1
                /\ h' = [h EXCEPT ![self] = head']
                /\ \E i \in SetOfRandomElement(2..3):
@@ -901,7 +901,7 @@ claim(self) == /\ pc[self] = "claim"
 
 wrt(self) == /\ pc[self] = "wrt"
              /\ disk' = (disk \cup {h[self]})
-             /\ history' = appendHistory(self, "enq", h[self])
+             /\ history' = appendHistory("enq", h[self])
              /\ h' = [h EXCEPT ![self] = np]
              /\ \E i \in SetOfRandomElement(2..3):
                   \/ /\ i \in 2..2
