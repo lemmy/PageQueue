@@ -167,7 +167,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
            \* Unsurprisingly, it allows behaviors that keep increasing head,
            \* which semantically corresponds to exploring a set of states that
            \* have infinite successor states.
-           TotalWork(h,t) == Len(Enqueued) > Pages \/ Len(Dequeued) > Pages
+           TotalWork(h,t) == h > Pages
        
            (******************************)
            (* Type correctness invariant *)
