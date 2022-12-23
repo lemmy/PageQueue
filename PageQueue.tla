@@ -1,3 +1,29 @@
+- Variant A: Simulate fixed-length traces and see how (page) throughput
+  changes over varying numbers of workers.  Input results into USL. This
+  is exactly how it would work with the implementation.
+
+- Variant B1: Count contention & coherence at a per-behavior level by adding
+  auxiliary variables to the spec. Generate behaviors with simulation.
+  
+- Variant B2: No spec variables but TLCSet/TLCGet
+
+- Variant C: Basic/Aggregating hyperproperties maintained with TLCSet/TLCGet.
+
+- Needs: Disable suspension because this functionality is not relevant for
+  scalability (see `NoSuspension` definition below).
+
+- Features of implementation not modelled in spec:
+  -- Size of a pages
+  -- Function that dynamically determines page size
+  -- blocking time of disk reads and writes
+  -- Coherence/cross-chatter due to CAS
+  
+Why is there no speed-up with more workers at the spec level?
+a) Approach of predicting scalability at the spec level, ultimately, doesn't work
+b) Algorithm, ultimately, doesn't scale
+c) Markus has made a stupid mistake
+
+
 ----------------------------- MODULE PageQueue -----------------------------
 EXTENDS Integers, Sequences, SequencesExt, Functions, FiniteSets, TLC, TLCExt,
         Randomization
@@ -41,8 +67,8 @@ ASSUME /\ Workers # {}            (* At least one worker. *)
 \* -- appendHistory to <<>>
 \* -- TotalWork to FALSE
 \* - Prevent a suffix of infinite stuttering to keep simulation from
-\*   generating a suffix of stuttering steps up to -depth N. 
 \* -- Action Constraint: ~Terminating
+\*   generating a suffix of stuttering steps up to -depth N. 
 \* - Increase -depth to a large value 
 \* - Amend behavior spec to initialize TLCSet registers:
 \* -- InitializeStats /\ Spec
