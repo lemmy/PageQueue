@@ -945,6 +945,17 @@ ViewSpec ==
 \*               /\ \A self \in Workers : WF_vars(worker(self))
 \*               /\ WF_blocked(Tick)
 
+-----------------------------------------------------------------------------
+
+(* To disable suspension at the algorithm, and, thus, reduce the state space,
+   simply re-define ProcName in the model with NoSuspension below. *)
+NoSuspension ==
+  /\ pc' = [pc EXCEPT !["main"] = "Done"]
+  \* This is vars *without* pc (has to be kept up to date with generated vars).
+  /\ UNCHANGED << tail, disk, head, enqHistory, deqHistory, terminated, phaser, condition, tmp, result, t, h >>
+
+-----------------------------------------------------------------------------
+
 (***************************************************************************)
 (* Definition override for Terminating to print the behavior's history     *)
 (* after all workers have terminated.                                      *)
