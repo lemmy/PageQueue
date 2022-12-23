@@ -589,7 +589,7 @@ sus == CHOOSE sus : sus \notin Nat \cup {fin,vio,np}
        }
 }
 ***************************************************************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "a2c119de" /\ chksum(tla) = "5bc30cde")
+\* BEGIN TRANSLATION (chksum(pcal) = "a2c119de" /\ chksum(tla) = "c5260d2c")
 VARIABLES tail, disk, head, enqHistory, deqHistory, pc
 
 (* define statement *)
@@ -710,7 +710,7 @@ deq(self) == /\ pc[self] = "deq"
                    THEN /\ pc' = [pc EXCEPT ![self] = "Done"]
                    ELSE /\ IF t'[self] = fin
                               THEN /\ Assert(disk = {}, 
-                                             "Failure of assertion at line 343, column 20.")
+                                             "Failure of assertion at line 330, column 20.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                               ELSE /\ IF t'[self] = sus
                                          THEN /\ pc' = [pc EXCEPT ![self] = "suspendedA"]
@@ -758,7 +758,7 @@ wt1(self) == /\ pc[self] = "wt1"
                         /\ UNCHANGED << disk, h >>
                    ELSE /\ IF tail = fin
                               THEN /\ Assert(h[self] = np /\ disk = {}, 
-                                             "Failure of assertion at line 380, column 24.")
+                                             "Failure of assertion at line 367, column 24.")
                                    /\ pc' = [pc EXCEPT ![self] = "Done"]
                                    /\ UNCHANGED << disk, h >>
                               ELSE /\ IF tail = sus
@@ -766,7 +766,7 @@ wt1(self) == /\ pc[self] = "wt1"
                                               /\ UNCHANGED << disk, h >>
                                          ELSE /\ IF head = tail - Cardinality(Workers)
                                                     THEN /\ Assert(h[self] = np, 
-                                                                   "Failure of assertion at line 401, column 24.")
+                                                                   "Failure of assertion at line 388, column 24.")
                                                          /\ pc' = [pc EXCEPT ![self] = "casB"]
                                                          /\ UNCHANGED << disk, 
                                                                          h >>
@@ -813,7 +813,7 @@ casB(self) == /\ pc[self] = "casB"
                          /\ tail' = tail
               /\ IF result'[self]
                     THEN /\ Assert(disk = {}, 
-                                   "Failure of assertion at line 404, column 33.")
+                                   "Failure of assertion at line 391, column 33.")
                          /\ terminated' = TRUE
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
                     ELSE /\ pc' = [pc EXCEPT ![self] = "wt"]
@@ -823,7 +823,7 @@ casB(self) == /\ pc[self] = "casB"
 
 rd(self) == /\ pc[self] = "rd"
             /\ Assert(t[self] \in disk, 
-                      "Failure of assertion at line 478, column 18.")
+                      "Failure of assertion at line 465, column 18.")
             /\ disk' = disk \ {t[self]}
             /\ pc' = [pc EXCEPT ![self] = "exp"]
             /\ UNCHANGED << tail, head, enqHistory, deqHistory, terminated, 
@@ -857,7 +857,7 @@ enq(self) == /\ pc[self] = "enq"
 
 claim(self) == /\ pc[self] = "claim"
                /\ Assert(h[self] = np, 
-                         "Failure of assertion at line 545, column 20.")
+                         "Failure of assertion at line 532, column 20.")
                /\ head' = head + 1
                /\ h' = [h EXCEPT ![self] = head']
                /\ \E i \in SetOfRandomElement(2..3):
